@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 type AuthSession = {
   access_token: string;
   refresh_token: string;
@@ -77,40 +79,29 @@ export const supabase = {
       return { data: { session: getSessionFromStorage() }, error: null };
     },
     async signInWithPassword(params: { email: string; password: string }): Promise<AuthSuccess<{ user: AuthSession['user']; session: AuthSession }> | AuthFailure> {
-      if (!supabaseUrl || !supabaseAnonKey) {
-        return { data: null, error: { message: 'Supabase no está configurado.' } };
+      // Simulated login - no real API call
+      // Accept any email @duocuc.cl domain and any non-empty password
+      if (!params.email || !params.password) {
+        return { data: null, error: { message: 'Email y contraseña son requeridos.' } };
       }
 
-      // The auth token endpoint expects a JSON body with email/password
-      const response = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
-        method: 'POST',
-        headers: {
-          apikey: supabaseAnonKey,
-          Authorization: `Bearer ${supabaseAnonKey}`,
-          'Content-Type': 'application/json',
+      if (!params.email.endsWith('@duocuc.cl')) {
+        return { data: null, error: { message: 'Solo usuarios institucionales @duocuc.cl' } };
+      }
+
+      // Simulate successful login with mock tokens
+      const mockSession: AuthSession = {
+        access_token: `mock_access_${Date.now()}`,
+        refresh_token: `mock_refresh_${Date.now()}`,
+        user: {
+          id: `user_${params.email.split('@')[0]}`,
+          email: params.email,
         },
-        body: JSON.stringify({ email: params.email, password: params.password }),
-      }).catch(() => null as unknown as Response);
-
-      if (!response) {
-        return { data: null, error: { message: 'No response from auth server.' } };
-      }
-
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        const msg = payload?.error_description || payload?.error || payload?.message || `Error de autenticación (status ${response.status})`;
-        return { data: null, error: { message: msg } };
-      }
-
-      const session: AuthSession = {
-        access_token: payload.access_token,
-        refresh_token: payload.refresh_token,
-        user: payload.user,
       };
 
-      saveSession(session);
+      saveSession(mockSession);
 
-      return { data: { user: session.user, session }, error: null };
+      return { data: { user: mockSession.user, session: mockSession }, error: null };
     },
     async signOut(): Promise<AuthSuccess<null> | AuthFailure> {
       const session = getSessionFromStorage();
