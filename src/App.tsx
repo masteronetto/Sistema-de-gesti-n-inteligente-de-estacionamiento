@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Car, 
   AlertTriangle, 
@@ -31,6 +31,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Espacio, Alerta, CheckIn, TipoEspacio, EstadoEspacio, EstadoAlerta } from './types';
 import { generarEspaciosCompletos, inicialAlertas, proyeccionesIA, actividadReciente } from './data';
+import { supabase, isSupabaseConfigured } from './lib/supabase';
 
 // Color Palette Guidelines applied in Tailwind:
 // Primary Background/Sidebar: bg-[#002b49] (duoc-navy)
@@ -47,7 +48,7 @@ export default function App() {
   const [espacios, setEspacios] = useState<Espacio[]>(() => generarEspaciosCompletos());
 
   // Additional interface & simulation states
-  const [sessionUser, setSessionUser] = useState<{ email: string; role: string } | null>(null);
+  const [sessionUser, setSessionUser] = useState<{ email: string; role: 'guardia' | 'jefe_seguridad' | 'servicios_generales' } | null>(null);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -71,6 +72,29 @@ export default function App() {
   const [mantenimientoReason, setMantenimientoReason] = useState('');
   const [mantenimientoError, setMantenimientoError] = useState('');
 
+  const resolveVistaFromRole = (role: 'guardia' | 'jefe_seguridad' | 'servicios_generales') => (role === 'guardia' ? 'guardia' : 'gestion');
+
+  const applyAuthenticatedProfile = async (userId: string, fallbackEmail: string) => {
+    if (!supabase) {
+      throw new Error('Supabase no está configurado.');
+    }
+
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('email, role')
+      .eq('id', userId)
+      .single();
+
+    if (error || !profile) {
+      throw new Error('No se encontró el perfil del usuario.');
+    }
+
+    const role = profile.role as 'guardia' | 'jefe_seguridad' | 'servicios_generales';
+    setSessionUser({ email: profile.email || fallbackEmail, role });
+    setCurrentRole(role);
+    setVista(resolveVistaFromRole(role));
+  };
+
   // Active check-in time duration calculator
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
@@ -87,6 +111,58 @@ export default function App() {
       return () => clearTimeout(timer);
     }
   }, [toastMessage]);
+
+  useEffect(() => {
+    const bootstrapAuth = async () => {
+      if (!isSupabaseConfigured) {
+        setLoginError('Configura VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY para habilitar el login real.');
+        return;
+      }
+
+      const { data, error } = await supabase.auth.getSession();
+      if (error) {
+        setLoginError(error.message);
+        return;
+      }
+
+      const user = data.session?.user;
+      if (user) {
+        try {
+          await applyAuthenticatedProfile(user.id, user.email || '');
+        } catch (profileError) {
+          setLoginError(profileError instanceof Error ? profileError.message : 'No se pudo restaurar la sesión.');
+        }
+      }
+    };
+
+    bootstrapAuth();
+  }, []);
+
+  useEffect(() => {
+    const bootstrapAuth = async () => {
+      if (!supabase || !isSupabaseConfigured) {
+        setLoginError('Configura VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY para habilitar el login real.');
+        return;
+      }
+
+      const { data, error } = await supabase.auth.getSession();
+      if (error) {
+        setLoginError(error.message);
+        return;
+      }
+
+      const user = data.session?.user;
+      if (user) {
+        try {
+          await applyAuthenticatedProfile(user.id, user.email || '');
+        } catch (profileError) {
+          setLoginError(profileError instanceof Error ? profileError.message : 'No se pudo restaurar la sesión.');
+        }
+      }
+    };
+
+    bootstrapAuth();
+  }, []);
 
   // Duration counter for check-in
   useEffect(() => {
@@ -182,31 +258,43 @@ export default function App() {
       return;
     }
 
+    if (!isSupabaseConfigured) {
+      setLoginError('Configura Supabase para usar el login real.');
+      return;
+    }
+
     setIsLoggingIn(true);
 
-    // Simulate 1s authentication database delay
-    setTimeout(() => {
-      setIsLoggingIn(false);
-      let targetRole: 'guardia' | 'jefe_seguridad' | 'servicios_generales' = 'guardia';
-      let targetVista: 'login' | 'guardia' | 'gestion' = 'guardia';
+    supabase.auth.signInWithPassword({
+      email: loginEmail.trim(),
+      password: loginPassword,
+    })
+      .then(async ({ data, error }) => {
+        if (error) {
+          setLoginError(error.message);
+          return;
+        }
 
-      if (loginEmail === 'guardia@duocuc.cl') {
-        targetRole = 'guardia';
-        setCurrentRole('guardia');
-        targetVista = 'guardia';
-      } else if (loginEmail === 'jefe_seguridad@duocuc.cl' || loginEmail === 'servicios_generales@duocuc.cl' || loginEmail === 'admin@duocuc.cl') {
-        targetRole = loginEmail === 'servicios_generales@duocuc.cl' ? 'servicios_generales' : 'jefe_seguridad';
-        setCurrentRole(targetRole);
-        targetVista = 'gestion';
-      } else {
-        setLoginError('Solo pueden ingresar guardias y administradores institucionales');
-        return;
-      }
+        if (!data.user) {
+          setLoginError('No se pudo iniciar sesión.');
+          return;
+        }
 
-      setSessionUser({ email: loginEmail, role: targetRole });
-      setVista(targetVista);
-      triggerToast(`Sesión iniciada con éxito como ${loginEmail}`, 'success');
-    }, 1200);
+        await applyAuthenticatedProfile(data.user.id, data.user.email || loginEmail.trim());
+        triggerToast('Sesión iniciada con éxito', 'success');
+      })
+      .catch((loginAuthError) => {
+        setLoginError(loginAuthError instanceof Error ? loginAuthError.message : 'No se pudo iniciar sesión.');
+      })
+      .finally(() => setIsLoggingIn(false));
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSessionUser(null);
+    setCurrentRole('guardia');
+    setVista('login');
+    triggerToast('Sesión cerrada.', 'info');
   };
 
   // Check-In space logic
@@ -641,13 +729,7 @@ export default function App() {
 
               <div className="mt-6 pt-5 border-t border-gray-100 text-center text-xs text-gray-500">
                 <p>Uso institucional exclusivo para guardias y administración de Duoc UC Sede Maipú.</p>
-                <div className="mt-3 flex justify-center gap-3">
-                  <span className="text-gray-300">|</span>
-                  <button type="button" onClick={() => { setLoginEmail('guardia@duocuc.cl'); setLoginPassword('duocguard1'); }} className="text-[#0076b6] font-semibold hover:underline">Demo Guardia</button>
-                  <span className="text-gray-300">|</span>
-                  <button type="button" onClick={() => { setLoginEmail('jefe_seguridad@duocuc.cl'); setLoginPassword('duocadmin1'); }} className="text-[#00a4e4] font-semibold hover:underline">Demo Admin</button>
-                  <span className="text-gray-300">|</span>
-                </div>
+                <p className="mt-3 text-[10px] text-gray-400">Acceso real vía Supabase Auth.</p>
               </div>
             </motion.div>
           </div>
@@ -701,7 +783,7 @@ export default function App() {
                 </div>
 
                 <button 
-                  onClick={() => { setVista('login'); setSessionUser(null); triggerToast("Sesión cerrada."); }} 
+                  onClick={handleLogout} 
                   className="w-full mt-4 min-h-[44px] border border-red-500/30 text-red-400 hover:bg-red-500/10 font-bold rounded-xl text-xs transition-colors py-2 flex items-center justify-center gap-2"
                 >
                   <X className="w-4 h-4 shrink-0" />
@@ -1412,77 +1494,6 @@ export default function App() {
         )}
 
       </div>
-
-      {/* STICKY RELEVANT DEVELOPER TOOLBAR (z-50) */}
-      <footer className="fixed bottom-0 left-0 right-0 z-[1100] bg-[#002b49] text-white p-3 border-t-2 border-[#fdb913] flex flex-wrap gap-4 items-center justify-between select-none px-6">
-        <div className="flex items-center gap-2">
-          <span className="bg-[#fdb913] text-[#002b49] text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-widest">
-            DEV TOOLBAR
-          </span>
-          <p className="text-xs text-slate-300 font-semibold">
-            Prueba de perfiles y vistas SGE-Duoc:
-          </p>
-        </div>
-
-        {/* View togglers */}
-        <div className="flex gap-1.5 bg-[#001d34] p-1 rounded-lg border border-white/5">
-          <button 
-            type="button"
-            onClick={() => setVista('login')}
-            className={`px-3 py-1.5 text-xs font-bold rounded transition-all ${
-              vista === 'login' ? 'bg-[#fdb913] text-[#002b49]' : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            1. Login
-          </button>
-
-          <button 
-            type="button"
-            onClick={() => {
-              setVista('guardia');
-              setCurrentRole('guardia');
-              if (!sessionUser) setSessionUser({ email: 'guardia@duocuc.cl', role: 'guardia' });
-            }}
-            className={`px-3 py-1.5 text-xs font-bold rounded transition-all ${
-              vista === 'guardia' ? 'bg-[#fdb913] text-[#002b49]' : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            2. Guardia
-          </button>
-
-          <button 
-            type="button"
-            onClick={() => {
-              setVista('gestion');
-              setCurrentRole('jefe_seguridad');
-              if (!sessionUser) setSessionUser({ email: 'jefe_seguridad@duocuc.cl', role: 'jefe_seguridad' });
-            }}
-            className={`px-3 py-1.5 text-xs font-bold rounded transition-all ${
-              vista === 'gestion' ? 'bg-[#fdb913] text-[#002b49]' : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            3. Gestión
-          </button>
-        </div>
-
-        {/* Role emulator for US-08 context menu visibility */}
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Rol Activo:</span>
-          <select 
-            value={currentRole} 
-            onChange={(e) => {
-              const r = e.target.value as 'guardia' | 'jefe_seguridad' | 'servicios_generales';
-              setCurrentRole(r);
-              triggerToast(`Rol simulado cambiado a ${r.toUpperCase()}`, 'info');
-            }}
-            className="bg-[#001d34] text-xs font-bold text-white border-none py-1 pl-2 pr-8 rounded focus:ring-1 focus:ring-[#fdb913] outline-none"
-          >
-            <option value="guardia">Guardia (Con Admin)</option>
-            <option value="jefe_seguridad">Jefe Seguridad (Con Admin)</option>
-            <option value="servicios_generales">Servicios Generales (Con Admin)</option>
-          </select>
-        </div>
-      </footer>
 
     </div>
   );

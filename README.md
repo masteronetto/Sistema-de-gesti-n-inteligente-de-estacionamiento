@@ -50,6 +50,13 @@ Este script crea la estructura base y también carga datos de prueba para:
 - `public.parking_alerts`
 - `public.parking_activity_log`
 
+## Variables de entorno
+
+Para que el login funcione de forma real en Vercel o local, define estas variables:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
 ## Usuarios de prueba
 
 - `guardia@duocuc.cl` / `duocguard1`
