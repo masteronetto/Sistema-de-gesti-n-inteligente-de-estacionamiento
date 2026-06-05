@@ -90,6 +90,7 @@ export const supabase = {
         method: 'POST',
         headers: {
           apikey: supabaseAnonKey,
+          Authorization: `Bearer ${supabaseAnonKey}`,
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: body.toString(),
@@ -101,7 +102,8 @@ export const supabase = {
 
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        return { data: null, error: { message: payload?.error_description || payload?.message || 'Error de autenticación.' } };
+        const msg = payload?.error_description || payload?.error || payload?.message || `Error de autenticación (status ${response.status})`;
+        return { data: null, error: { message: msg } };
       }
 
       const session: AuthSession = {
