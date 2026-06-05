@@ -81,19 +81,15 @@ export const supabase = {
         return { data: null, error: { message: 'Supabase no está configurado.' } };
       }
 
-      // The auth token endpoint expects application/x-www-form-urlencoded body
-      const body = new URLSearchParams();
-      body.append('email', params.email);
-      body.append('password', params.password);
-
+      // The auth token endpoint expects a JSON body with email/password
       const response = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
         method: 'POST',
         headers: {
           apikey: supabaseAnonKey,
           Authorization: `Bearer ${supabaseAnonKey}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
         },
-        body: body.toString(),
+        body: JSON.stringify({ email: params.email, password: params.password }),
       }).catch(() => null as unknown as Response);
 
       if (!response) {
