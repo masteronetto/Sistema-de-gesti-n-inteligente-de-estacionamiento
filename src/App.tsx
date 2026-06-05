@@ -224,7 +224,9 @@ export default function App() {
     e.preventDefault();
     setLoginError('');
 
-    if (!loginEmail.endsWith('@duocuc.cl')) {
+    const email = loginEmail.trim().toLowerCase();
+
+    if (!email.endsWith('@duocuc.cl')) {
       setLoginError('Solo usuarios institucionales @duocuc.cl');
       return;
     }
@@ -237,7 +239,7 @@ export default function App() {
     setIsLoggingIn(true);
 
     supabase.auth.signInWithPassword({
-      email: loginEmail.trim(),
+      email,
       password: loginPassword,
     })
       .then(async ({ data, error }) => {
@@ -251,7 +253,7 @@ export default function App() {
           return;
         }
 
-        await applyAuthenticatedProfile(data.user.id, data.user.email || loginEmail.trim());
+        await applyAuthenticatedProfile(data.user.id, data.user.email || email);
         triggerToast('Sesión iniciada con éxito', 'success');
       })
       .catch((loginAuthError) => {
@@ -635,7 +637,7 @@ export default function App() {
                   <label className="block text-xs font-semibold uppercase text-gray-600 tracking-wider mb-2">Correo institucional</label>
                   <div className="relative">
                     <input 
-                      type="text"
+                      type="email"
                       id="login-email-input"
                       value={loginEmail}
                       onChange={(e) => {
