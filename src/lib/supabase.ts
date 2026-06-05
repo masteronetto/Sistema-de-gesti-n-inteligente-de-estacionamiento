@@ -80,13 +80,9 @@ export const supabase = {
     },
     async signInWithPassword(params: { email: string; password: string }): Promise<AuthSuccess<{ user: AuthSession['user']; session: AuthSession }> | AuthFailure> {
       // Simulated login - no real API call
-      // Accept any email @duocuc.cl domain and any non-empty password
+      // Accept any email and any non-empty password
       if (!params.email || !params.password) {
         return { data: null, error: { message: 'Email y contraseña son requeridos.' } };
-      }
-
-      if (!params.email.endsWith('@duocuc.cl')) {
-        return { data: null, error: { message: 'Solo usuarios institucionales @duocuc.cl' } };
       }
 
       // Simulate successful login with mock tokens
