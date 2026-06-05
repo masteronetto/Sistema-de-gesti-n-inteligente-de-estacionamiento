@@ -56,6 +56,7 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [supabaseError, setSupabaseError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'alert' | 'info' } | null>(null);
   const [isOnline, setIsOnline] = useState(true); // Connectivity simulator
@@ -111,6 +112,7 @@ export default function App() {
 
   const loadParkingState = async () => {
     if (!supabase) return;
+    setSupabaseError('');
 
     const { data: spaces, error: spacesError } = await supabase
       .from('parking_spaces')
@@ -125,12 +127,14 @@ export default function App() {
 
     if (spacesError) {
       console.error('Error cargando espacios desde Supabase:', spacesError.message);
+      setSupabaseError(`Error cargando espacios: ${spacesError.message}`);
     } else if (spaces) {
       setEspacios(spaces.map(mapDbSpace));
     }
 
     if (alertsError) {
       console.error('Error cargando alertas desde Supabase:', alertsError.message);
+      setSupabaseError(prev => prev ? prev : `Error cargando alertas: ${alertsError.message}`);
     } else if (activeAlerts) {
       setAlertas(activeAlerts.map(mapDbAlert));
     }
@@ -156,6 +160,8 @@ export default function App() {
   useEffect(() => {
     if (dbEnabled) {
       loadParkingState();
+    } else {
+      setSupabaseError('Supabase no está configurado o no está disponible. Usa VITE_SUPABASE_URL y VITE_SUPABASE_PUBLISHABLE_KEY.');
     }
   }, [dbEnabled]);
 
@@ -824,6 +830,20 @@ export default function App() {
       
       {/* Toast Notification */}
       <AnimatePresence>
+        {supabaseError && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            className="fixed top-24 right-6 z-[1000] p-4 rounded-xl shadow-lg border bg-yellow-500 text-white max-w-sm flex items-center gap-3"
+          >
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <span className="font-medium text-sm">{supabaseError}</span>
+            <button onClick={() => setSupabaseError('')} className="ml-auto text-white hover:text-gray-200">
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
         {toastMessage && (
           <motion.div 
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
