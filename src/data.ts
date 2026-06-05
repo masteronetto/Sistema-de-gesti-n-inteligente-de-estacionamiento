@@ -14,8 +14,8 @@ export const inicialAlertas: Alerta[] = [
   {
     id: 2,
     patente: 'GHJK-32',
-    espacioBloqueado: 'B-03-FONDO',
-    espacioBloqueador: 'B-03-FRENTE',
+    espacioBloqueado: 'C-01-FONDO',
+    espacioBloqueador: 'C-01-FRENTE',
     conductor: 'Ana Torres',
     telefono: '+56987654321',
     estado: 'ESCALADA',

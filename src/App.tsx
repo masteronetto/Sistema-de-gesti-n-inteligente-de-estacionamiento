@@ -40,7 +40,7 @@ import { generarEspaciosCompletos, inicialAlertas, proyeccionesIA, actividadReci
 
 export default function App() {
   // Required states
-  const [vista, setVista] = useState<'login' | 'conductor' | 'guardia' | 'gestion'>('login');
+  const [vista, setVista] = useState<'login' | 'guardia' | 'gestion'>('login');
   const [checkIn, setCheckIn] = useState<CheckIn | null>(null);
   const [modalBloqueo, setModalBloqueo] = useState(false);
   const [alertas, setAlertas] = useState<Alerta[]>(inicialAlertas);
@@ -59,7 +59,7 @@ export default function App() {
   const [selectedEspacioId, setSelectedEspacioId] = useState<string | null>(null);
   
   // Custom Role switcher (used by US-08 context menu check)
-  const [currentRole, setCurrentRole] = useState<'conductor' | 'guardia' | 'jefe_seguridad' | 'servicios_generales'>('conductor');
+  const [currentRole, setCurrentRole] = useState<'guardia' | 'jefe_seguridad' | 'servicios_generales'>('guardia');
 
   // Block reporting bottom sheet interactive countdown
   const [blockCountdown, setBlockCountdown] = useState(300); // 5 minutes in seconds
@@ -187,21 +187,20 @@ export default function App() {
     // Simulate 1s authentication database delay
     setTimeout(() => {
       setIsLoggingIn(false);
-      let targetRole = 'conductor';
-      let targetVista: 'login' | 'conductor' | 'guardia' | 'gestion' = 'conductor';
+      let targetRole: 'guardia' | 'jefe_seguridad' | 'servicios_generales' = 'guardia';
+      let targetVista: 'login' | 'guardia' | 'gestion' = 'guardia';
 
       if (loginEmail === 'guardia@duocuc.cl') {
         targetRole = 'guardia';
         setCurrentRole('guardia');
         targetVista = 'guardia';
-      } else if (loginEmail === 'jefe@duocuc.cl' || loginEmail === 'jefe_seguridad@duocuc.cl') {
-        targetRole = 'jefe_seguridad';
-        setCurrentRole('jefe_seguridad');
+      } else if (loginEmail === 'jefe_seguridad@duocuc.cl' || loginEmail === 'servicios_generales@duocuc.cl' || loginEmail === 'admin@duocuc.cl') {
+        targetRole = loginEmail === 'servicios_generales@duocuc.cl' ? 'servicios_generales' : 'jefe_seguridad';
+        setCurrentRole(targetRole);
         targetVista = 'gestion';
       } else {
-        targetRole = 'conductor';
-        setCurrentRole('conductor');
-        targetVista = 'conductor';
+        setLoginError('Solo pueden ingresar guardias y administradores institucionales');
+        return;
       }
 
       setSessionUser({ email: loginEmail, role: targetRole });
@@ -432,8 +431,6 @@ export default function App() {
   // Context Menu administrative actions
   const handleGridRightClick = (e: React.MouseEvent, espacioId: string) => {
     // Only display context menu for relevant administrative roles
-    if (currentRole === 'conductor') return;
-
     e.preventDefault();
     setContextMenu({
       x: e.pageX,
@@ -576,7 +573,7 @@ export default function App() {
 
               <form onSubmit={handleLogin} className="space-y-5">
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-gray-600 tracking-wider mb-2">Correo Duoc UC</label>
+                  <label className="block text-xs font-semibold uppercase text-gray-600 tracking-wider mb-2">Correo institucional</label>
                   <div className="relative">
                     <input 
                       type="text"
@@ -586,7 +583,7 @@ export default function App() {
                         setLoginEmail(e.target.value);
                         if (loginError) setLoginError('');
                       }}
-                      placeholder="conductor@duocuc.cl o guardia@duocuc.cl"
+                      placeholder="guardia@duocuc.cl o jefe_seguridad@duocuc.cl"
                       className={`w-full min-h-[44px] px-4 rounded-xl border bg-gray-50 text-base outline-none transition-colors duration-200 ${
                         loginError ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500' : 'border-gray-200 focus:border-[#0076b6]'
                       }`}
@@ -643,526 +640,16 @@ export default function App() {
               </form>
 
               <div className="mt-6 pt-5 border-t border-gray-100 text-center text-xs text-gray-500">
-                <p>Uso institucional exclusivo para Duoc UC Sede Maipú.</p>
+                <p>Uso institucional exclusivo para guardias y administración de Duoc UC Sede Maipú.</p>
                 <div className="mt-3 flex justify-center gap-3">
                   <span className="text-gray-300">|</span>
-                  <button type="button" onClick={() => { setLoginEmail('conductor@duocuc.cl'); setLoginPassword('duocsec123'); }} className="text-[#0076b6] font-semibold hover:underline">Demo Conductor</button>
+                  <button type="button" onClick={() => { setLoginEmail('guardia@duocuc.cl'); setLoginPassword('duocguard1'); }} className="text-[#0076b6] font-semibold hover:underline">Demo Guardia</button>
                   <span className="text-gray-300">|</span>
-                  <button type="button" onClick={() => { setLoginEmail('guardia@duocuc.cl'); setLoginPassword('duocguard1'); }} className="text-[#00a4e4] font-semibold hover:underline">Demo Guardia</button>
+                  <button type="button" onClick={() => { setLoginEmail('jefe_seguridad@duocuc.cl'); setLoginPassword('duocadmin1'); }} className="text-[#00a4e4] font-semibold hover:underline">Demo Admin</button>
                   <span className="text-gray-300">|</span>
                 </div>
               </div>
             </motion.div>
-          </div>
-        )}
-
-        {/* VIEW 2 — VISTA CONDUCTOR (Mobile Screen Simulator) */}
-        {vista === 'conductor' && (
-          <div className="flex-1 py-8 px-4 flex items-center justify-center bg-gray-100">
-            <div className="w-full max-w-[390px] min-h-[680px] bg-[#f7f9fb] rounded-[40px] shadow-2xl border-[12px] border-gray-900 relative overflow-hidden flex flex-col select-none">
-              
-              {/* Phone Camera Notch & Clock Bar */}
-              <div className="bg-[#002b49] text-white pt-3 pb-2 px-6 flex justify-between items-center text-xs font-bold shrink-0 z-40">
-                <span>15:22</span>
-                <div className="w-[110px] h-[18px] bg-black rounded-full absolute left-1/2 -translate-x-1/2"></div>
-                <div className="flex items-center gap-2">
-                  <Wifi className="w-3.5 h-3.5" />
-                  <span className="text-[10px]">Maipú_5G</span>
-                </div>
-              </div>
-
-              {/* Institutional Header */}
-              <header className="bg-[#002b49] text-white p-4 flex items-center justify-between border-b border-[#001d34] shrink-0">
-                <div className="flex items-center gap-2">
-                  <span className="bg-[#fdb913] text-[#002b49] p-1 rounded-lg">
-                    <Car className="w-5 h-5 shrink-0" />
-                  </span>
-                  <div>
-                    <h2 className="font-bold text-sm leading-none tracking-tight text-white">SGE-Duoc</h2>
-                    <span className="text-[10px] font-semibold tracking-wide text-[#00a4e4] uppercase">DUOC UC MAIPÚ</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  {/* Network error stimulator */}
-                  <button 
-                    onClick={() => {
-                      setIsOnline(!isOnline);
-                      triggerToast(isOnline ? "Simulando desconexión de red" : "Señal restablecida", isOnline ? "alert" : "success");
-                    }} 
-                    className={`p-1.5 rounded-lg flex items-center justify-center transition-colors ${isOnline ? 'text-green-400 hover:bg-white/10' : 'text-amber-400 bg-amber-500/10 animate-pulse'}`}
-                    title={isOnline ? "Fuerza Desconexión Red" : "Forzar Conexión Online"}
-                  >
-                    {isOnline ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
-                  </button>
-                  
-                  <div className="w-[32px] h-[32px] bg-[#0076b6] rounded-full flex items-center justify-center text-xs text-white font-bold uppercase border border-white/20">
-                    {sessionUser?.email.charAt(0) || 'C'}
-                  </div>
-                </div>
-              </header>
-
-              {/* Offline Banner alert (CA-04.6) */}
-              {!isOnline && (
-                <div className="bg-[#f59e0b] text-[#002b49] px-4 py-1.5 flex items-center justify-center gap-2 text-xs font-bold shrink-0 animate-fadeIn">
-                  <AlertTriangle className="w-4 h-4 shrink-0 animate-bounce" />
-                  <span>Sin conexión. Reintentando...</span>
-                </div>
-              )}
-
-              {/* Conductor Body Content Scroll Region */}
-              <div className="flex-1 overflow-y-auto pb-20 p-4">
-                
-                {/* Sub-screen A: Availability Map (checkIn === null) */}
-                {checkIn === null ? (
-                  <div className="space-y-4">
-                    {/* Top Summary Card (CA-03.1) */}
-                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-150 relative">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <p className="text-3xl font-extrabold text-[#002b49]">{espaciosDisponibles}</p>
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest leading-none mt-1">espacios disponibles de {totalEspacios}</p>
-                        </div>
-                        <span className="text-[10px] bg-green-50 text-green-700 border border-green-200 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">ESTADO FLUIDO</span>
-                      </div>
-
-                      {/* Multi-colored occupancy progress bar */}
-                      <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden mt-3 mb-1">
-                        <div 
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            occupancyPercentage < 50 ? 'bg-green-500' : occupancyPercentage < 85 ? 'bg-[#fdb913]' : 'bg-red-500'
-                          }`}
-                          style={{ width: `${occupancyPercentage}%` }}
-                        ></div>
-                      </div>
-
-                      <div className="flex justify-between items-center text-[10px] text-gray-400 mt-2 font-medium">
-                        <span>Ocupado: {occupancyPercentage}%</span>
-                        <span>Actualizado hace 5s</span>
-                      </div>
-                    </div>
-
-                    {/* Zone Info Banner */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-[#002b49] flex items-start gap-2.5">
-                      <Info className="w-4 h-4 text-[#0076b6] shrink-0 mt-0.5" />
-                      <p className="font-medium">
-                        Plan Maipú: Para evitar quedar atrapado, complete primero los casilleros de atrás (<b className="text-indigo-700 font-bold">FONDO</b>) antes de tapar con un auto (<b className="text-orange-700 font-semibold">FRENTE</b>).
-                      </p>
-                    </div>
-
-                    {/* Zone Grid Section A, B, C */}
-                    {['A', 'B', 'C'].map(zonaName => (
-                      <div key={zonaName} className="bg-white rounded-2xl p-4 border border-gray-150 shadow-sm">
-                        <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
-                          <h4 className="font-extrabold text-[#002b49] text-sm">Zona {zonaName} — Maipú Centro</h4>
-                          <span className="text-xs text-gray-400 font-semibold">
-                            {filterByZone(zonaName).filter(e => e.estado === 'disponible').length} Libres
-                          </span>
-                        </div>
-
-                        {/* Cells organize double spaces coupled */}
-                        <div className="grid grid-cols-2 gap-3" id={`zone-grid-${zonaName}`}>
-                          {/* We pair double elements side-by-side inside blocks, and simple ones solitary */}
-                          {/* To render pairs elegantly, we iterate and group double spaces */}
-                          {(() => {
-                            const zoneElements = filterByZone(zonaName);
-                            const renderedPairs: string[] = [];
-                            const elementsToRender: React.ReactNode[] = [];
-
-                            zoneElements.forEach((esp) => {
-                              if (renderedPairs.includes(esp.id)) return;
-
-                              if (esp.tipo === 'simple') {
-                                // Single column item
-                                const selectionValid = puedeSeleccionar(esp, espacios);
-                                const isSelected = loadingCheckIn === esp.id;
-
-                                elementsToRender.push(
-                                  <div key={esp.id} className="col-span-2 p-1.5 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                                    <div className="flex justify-between items-center gap-2">
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
-                                        <span className="font-extrabold text-sm text-[#002b49]">{esp.id}</span>
-                                        <span className="text-[10px] text-gray-500 font-bold uppercase">Simple</span>
-                                      </div>
-
-                                      <button
-                                        onClick={() => handleSpaceCheckIn(esp.id)}
-                                        disabled={esp.estado !== 'disponible' || isSelected}
-                                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all h-[36px] min-w-[75px] flex items-center justify-center ${
-                                          esp.estado === 'disponible' 
-                                            ? 'bg-green-600 text-white hover:bg-green-700 active:scale-95'
-                                            : 'bg-gray-100 text-gray-400 cursor-not-allowed border'
-                                        }`}
-                                      >
-                                        {isSelected ? (
-                                          <svg className="animate-spin h-3.5 w-3.5 text-green-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                          </svg>
-                                        ) : esp.estado === 'disponible' ? (
-                                          "Ocupar"
-                                        ) : esp.estado === 'ocupado' ? (
-                                          "Ocupado"
-                                        ) : esp.estado === 'reservado' ? (
-                                          "Reservado"
-                                        ) : "Bloqueado"}
-                                      </button>
-                                    </div>
-                                  </div>
-                                );
-                              } else {
-                                // Double spaces. Find partner
-                                const parSpot = zoneElements.find(e => e.id === esp.parId);
-                                if (parSpot) {
-                                  renderedPairs.push(esp.id);
-                                  renderedPairs.push(parSpot.id);
-
-                                  // Decide which is FONDO vs FRENTE
-                                  const fondoSpot = esp.tipo === 'doble_fondo' ? esp : parSpot;
-                                  const frenteSpot = esp.tipo === 'doble_frente' ? esp : parSpot;
-
-                                  const canSelectFrente = puedeSeleccionar(frenteSpot, espacios);
-                                  const canSelectFondo = puedeSeleccionar(fondoSpot, espacios);
-
-                                  const isFondoSelected = loadingCheckIn === fondoSpot.id;
-                                  const isFrenteSelected = loadingCheckIn === frenteSpot.id;
-
-                                  elementsToRender.push(
-                                    <div key={`${fondoSpot.id}-pair`} className="col-span-2 border border-gray-200 bg-slate-50/50 rounded-xl p-3 relative shadow-inner">
-                                      <div className="absolute top-2.5 right-3 text-[9px] uppercase font-bold text-gray-400 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                        <LockKeyhole className="w-2.5 h-2.5 shrink-0" /> Casilla Doble
-                                      </div>
-
-                                      {/* Visual bracket connectors to satisfy CA-03.3 */}
-                                      <div className="flex items-center gap-1.5 mb-2.5">
-                                        <div className="w-1.5 h-4 border-l-2 border-y-2 border-[#0076b6] rounded-l-md"></div>
-                                        <span className="text-[10px] text-[#0076b6] font-bold uppercase tracking-wider">PAR COMPARTIDO</span>
-                                      </div>
-
-                                      <div className="grid grid-cols-2 gap-2">
-                                        {/* FONDO slot box */}
-                                        <div className={`p-2 rounded-lg border flex flex-col justify-between min-h-[105px] transition-all bg-white shadow-sm ${
-                                          fondoSpot.estado === 'disponible' 
-                                            ? 'border-green-300' 
-                                            : 'border-red-200 bg-red-50/20'
-                                        }`}>
-                                          <div>
-                                            <div className="flex items-center justify-between mb-1">
-                                              <span className="font-extrabold text-xs text-[#002b49]">{fondoSpot.id}</span>
-                                              <span className="text-[8px] bg-indigo-50 text-indigo-700 px-1 py-0.2 rounded font-black uppercase">FONDO</span>
-                                            </div>
-                                            <p className="text-[10px] text-gray-400 font-semibold leading-tight">Ubicación atrás</p>
-                                          </div>
-
-                                          <button
-                                            onClick={() => handleSpaceCheckIn(fondoSpot.id)}
-                                            disabled={!canSelectFondo || isFondoSelected}
-                                            className={`w-full min-h-[36px] py-1 text-xs font-bold rounded-md transition-all flex items-center justify-center ${
-                                              canSelectFondo
-                                                ? 'bg-green-600 hover:bg-green-700 text-white active:scale-95 shadow-sm'
-                                                : 'bg-gray-100 text-gray-400 cursor-not-allowed border'
-                                            }`}
-                                          >
-                                            {isFondoSelected ? (
-                                              <svg className="animate-spin h-3.5 w-3.5 text-green-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                              </svg>
-                                            ) : fondoSpot.estado === 'disponible' ? (
-                                              "Ocupar"
-                                            ) : "Lleno"}
-                                          </button>
-                                        </div>
-
-                                        {/* FRENTE slot box (Visual disabled rule checking CA-04.2) */}
-                                        <div className={`p-2 rounded-lg border flex flex-col justify-between min-h-[105px] transition-all bg-white shadow-sm relative group ${
-                                          frenteSpot.estado === 'disponible' 
-                                            ? canSelectFrente 
-                                              ? 'border-green-300' 
-                                              : 'border-gray-200 bg-gray-50/70' 
-                                            : frenteSpot.estado === 'alerta'
-                                            ? 'border-yellow-400 bg-yellow-50/20'
-                                            : 'border-red-200'
-                                        }`}>
-                                          <div>
-                                            <div className="flex items-center justify-between mb-1">
-                                              <span className="font-extrabold text-xs text-[#002b49]">{frenteSpot.id}</span>
-                                              <span className="text-[8px] bg-orange-50 text-orange-700 px-1 py-0.2 rounded font-black uppercase">FRENTE</span>
-                                            </div>
-                                            <p className="text-[10px] text-gray-400 font-semibold leading-tight">Ubicación delante</p>
-                                          </div>
-
-                                          {/* Rule warning info indicator if FRENTE is blocked because FONDO is available */}
-                                          {frenteSpot.estado === 'disponible' && !canSelectFrente && (
-                                            <div className="p-1 text-[8px] leading-tight text-amber-700 bg-amber-50 rounded-md border border-amber-200 my-0.5 flex gap-1 items-start">
-                                              <AlertCircle className="w-2.5 h-2.5 shrink-0" />
-                                              <span>Ocupa primero el Fondo [{frenteSpot.parId}]</span>
-                                            </div>
-                                          )}
-
-                                          <button
-                                            onClick={() => handleSpaceCheckIn(frenteSpot.id)}
-                                            disabled={!canSelectFrente || isFrenteSelected}
-                                            className={`w-full min-h-[36px] py-1 text-xs font-bold rounded-md transition-all flex items-center justify-center ${
-                                              canSelectFrente
-                                                ? 'bg-green-600 hover:bg-green-700 text-white active:scale-95 shadow-sm'
-                                                : 'bg-gray-100 text-gray-400 cursor-not-allowed border'
-                                            }`}
-                                            title={!canSelectFrente && frenteSpot.estado === 'disponible' ? `Ocupa primero el Fondo [${frenteSpot.parId}]` : ''}
-                                          >
-                                            {isFrenteSelected ? (
-                                              <svg className="animate-spin h-3.5 w-3.5 text-green-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                              </svg>
-                                            ) : frenteSpot.estado === 'disponible' ? (
-                                              "Ocupar"
-                                            ) : frenteSpot.estado === 'alerta' ? (
-                                              "Bloqueo"
-                                            ) : "Lleno"}
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                }
-                              }
-                            });
-
-                            return <>{elementsToRender}</>;
-                          })()}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  
-                  /* Sub-screen B: Active Parking Space Screen (checkIn !== null) */
-                  <div className="space-y-5 animate-slideUp">
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-150 text-center relative overflow-hidden">
-                      <div className="absolute -top-12 -right-12 w-32 h-32 bg-green-50 rounded-full flex items-center justify-center z-0">
-                        <CheckCircle className="w-16 h-16 text-green-200 translate-x-5 -translate-y-5" />
-                      </div>
-
-                      <div className="relative z-10">
-                        <span className="bg-green-50 text-green-700 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border border-green-200">
-                          Estacionado
-                        </span>
-                        
-                        <h3 className="text-5xl font-black text-[#002b49] my-6 tracking-tight">
-                          {checkIn.espacioId}
-                        </h3>
-
-                        <div className="inline-flex items-center gap-1.5 bg-gray-50 border px-3 py-1.5 rounded-full text-xs font-semibold text-gray-500 mb-6">
-                          <MapPin className="w-4 h-4 text-[#0076b6]" />
-                          <span>Zona {checkIn.zona} • Sgto Maipú</span>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3 divide-x divide-gray-100 bg-gray-50 p-4 rounded-2xl border">
-                          <div className="text-center">
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Entrada</p>
-                            <p className="text-base font-extrabold text-[#002b49] mt-0.5">{checkIn.horaEntrada} Hrs</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Duración</p>
-                            <p className="text-base font-extrabold text-[#0076b6] mt-0.5 flex justify-center items-center gap-1">
-                              <Clock className="w-4 h-4" />
-                              <span>{formatTime(elapsedSeconds)}</span>
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* CA-06.1 Block trigger logic */}
-                    {isPairedFrenteOccupiedForCheckIn ? (
-                      <div className="bg-amber-50 rounded-2xl p-5 border border-amber-200 relative overflow-hidden animate-fadeIn">
-                        <div className="absolute -top-6 -right-6 w-20 h-20 bg-amber-100/50 rounded-full z-0"></div>
-                        
-                        <div className="relative z-10 space-y-4">
-                          <div className="flex gap-2.5 items-start">
-                            <AlertTriangle className="w-6 h-6 text-amber-600 shrink-0 mt-0.5 animate-pulse" />
-                            <div>
-                              <h4 className="font-extrabold text-sm text-[#002b49]">¿Estás bloqueado por el auto de adelante?</h4>
-                              <p className="text-xs text-gray-600 leading-normal mt-1">
-                                El espacio de enfrente <b>{espacios.find(e => e.id === checkIn.espacioId)?.parId}</b> está ocupado. Puedes enviarle una solicitud silenciosa para que retire el vehículo.
-                              </p>
-                            </div>
-                          </div>
-
-                          <button 
-                            type="button" 
-                            id="report-blocking-btn"
-                            onClick={handleReportBlocking}
-                            className="w-full min-h-[44px] bg-[#fdb913] hover:bg-[#e2a40a] text-[#002b49] font-extrabold rounded-xl transition-transform duration-150 active:scale-95 shadow-md flex items-center justify-center gap-2"
-                          >
-                            <AlertTriangle className="w-4 h-4 shrink-0" />
-                            <span>REPORTAR BLOQUEO</span>
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      checkIn.tipo === 'doble_fondo' && (
-                        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 flex gap-3 items-center">
-                          <div className="w-10 h-10 rounded-full bg-green-50 text-green-600 flex items-center justify-center shrink-0">
-                            <CheckCircle className="w-5 h-5 shrink-0" />
-                          </div>
-                          <div>
-                            <p className="font-extrabold text-xs text-[#002b49]">Salida despejada</p>
-                            <p className="text-[10px] text-gray-500 leading-normal font-medium">El espacio de adelante está disponible. No hay vehículos obstruyendo tu salida.</p>
-                          </div>
-                        </div>
-                      )
-                    )}
-
-                    <div className="space-y-3">
-                      <button 
-                        onClick={handleSpaceCheckout}
-                        className="w-full min-h-[44px] bg-[#002b49] hover:bg-[#001c30] text-white font-extrabold rounded-xl transition-all shadow-md active:scale-95"
-                      >
-                        REGISTRAR SALIDA
-                      </button>
-                      <p className="text-center text-[10px] font-semibold text-gray-400">Por favor, libere el espacio al retirarse para mantener el campus en orden.</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Bottom sheet report blocking modal (US-06) */}
-              <AnimatePresence>
-                {modalBloqueo && (
-                  <>
-                    {/* Dark backdrop */}
-                    <motion.div 
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 0.5 }}
-                      exit={{ opacity: 0 }}
-                      onClick={() => { setModalBloqueo(false); setIsBlockTimerRunning(false); }}
-                      className="absolute inset-0 bg-black z-50 rounded-[40px]"
-                    />
-                    
-                    {/* Bottom Drawer */}
-                    <motion.div 
-                      initial={{ y: "100%" }}
-                      animate={{ y: 0 }}
-                      exit={{ y: "100%" }}
-                      transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-                      id="blocker-bottom-sheet"
-                      className="absolute inset-x-0 bottom-0 bg-white rounded-t-3xl shadow-2xl z-50 p-6 flex flex-col gap-4 border-t border-gray-100 max-h-[85%]"
-                    >
-                      <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto cursor-pointer" onClick={() => { setModalBloqueo(false); setIsBlockTimerRunning(false); }}></div>
-                      
-                      <div className="text-center space-y-2 mt-2">
-                        <div className="w-12 h-12 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto shadow-sm">
-                          <AlertTriangle className="w-6 h-6 animate-pulse" />
-                        </div>
-                        <h3 className="font-extrabold text-lg text-[#002b49]">Tu vehículo está bloqueado</h3>
-                        <p className="text-xs text-gray-400 font-medium">Hemos identificado al conductor de la casilla de adelante</p>
-                      </div>
-
-                      {/* Blocker driver card */}
-                      <div className="bg-gray-50 rounded-2xl p-4 border space-y-3 text-xs">
-                        <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-                          <div>
-                            <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Casilla Obstructora</span>
-                            <p className="font-extrabold text-[#002b49] text-sm mt-0.5">
-                              {checkIn ? (espacios.find(e => e.id === checkIn.espacioId)?.parId || 'A-01-FRENTE') : 'A-01-FRENTE'}
-                            </p>
-                          </div>
-                          <div>
-                            <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Patente Blocker</span>
-                            <p className="font-mono font-bold text-red-600 text-sm mt-0.5">BKRT-45</p>
-                          </div>
-                        </div>
-
-                        <div className="flex justify-between items-center bg-white border p-3 rounded-xl gap-2 shadow-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 bg-[#0076b6]/10 text-[#0076b6] rounded-full flex items-center justify-center text-xs font-bold font-mono">
-                              CP
-                            </div>
-                            <div>
-                              <p className="font-bold text-[#002b49]">Carlos Pérez</p>
-                              <span className="text-[9px] text-gray-400 uppercase font-bold tracking-wider leading-none">Alumno Maipú</span>
-                            </div>
-                          </div>
-                          <a href="tel:+56912345678" className="h-[36px] px-3 bg-blue-50 text-[#0076b6] rounded-lg font-bold flex items-center gap-1 hover:bg-blue-100 transition-colors">
-                            <Phone className="w-3.5 h-3.5" />
-                            <span>Llamar</span>
-                          </a>
-                        </div>
-
-                        {/* Interactive Countdown Timer */}
-                        <div className="text-center p-3.5 bg-red-50/50 border border-red-100 rounded-xl">
-                          <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest leading-none">Tiempo de espera estimado</span>
-                          <p className="text-3xl font-black text-red-600 mt-1 font-mono tracking-tighter">
-                            {formatTime(blockCountdown)}
-                          </p>
-                          <p className="text-[9px] text-gray-400 font-medium leading-normal mt-1">Si el conductor no arriba en 5 minutos, el caso pasará automáticamente a escalada con guardias.</p>
-                          
-                          {/* Fast forward mechanic for demonstration */}
-                          <div className="mt-2 text-right">
-                            <button 
-                              type="button" 
-                              onClick={handleFastForwardCounter} 
-                              className="text-[9px] bg-[#fdb913]/20 hover:bg-[#fdb913]/30 text-[#002b49] font-bold px-2 py-0.5 rounded border border-[#fdb913]"
-                            >
-                              Simular 5m
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Bottom action elements (CA-06.2) */}
-                      <div className="space-y-2 mt-auto">
-                        <button
-                          type="button"
-                          onClick={handleConfirmBlockingNotification}
-                          className="w-full min-h-[44px] bg-green-600 hover:bg-green-700 text-white font-extrabold rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
-                        >
-                          <CheckCircle className="w-4 h-4 shrink-0" />
-                          <span>El conductor está respondiendo</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={handleEscalateDriverImmediately}
-                          className="w-full min-h-[44px] border border-red-500 text-red-600 hover:bg-red-50 font-extrabold rounded-xl transition-all flex items-center justify-center gap-2"
-                        >
-                          <AlertTriangle className="w-4 h-4 shrink-0" />
-                          <span>Escalar al guardia ahora</span>
-                        </button>
-                      </div>
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-
-              {/* Smartphone simulated bottom navbar */}
-              <nav className="absolute bottom-0 left-0 w-full h-[56px] bg-white border-t border-gray-100 flex items-center justify-around text-center z-40 shrink-0">
-                <button className="flex flex-col items-center justify-center text-[#0076b6] focus:outline-none">
-                  <Car className="w-5 h-5" />
-                  <span className="text-[10px] font-bold mt-0.5">Estacionar</span>
-                </button>
-                <div className="w-12 h-12 bg-white rounded-full -translate-y-4 border border-gray-150 flex items-center justify-center shadow-lg hover:scale-105 duration-200 cursor-pointer">
-                  <div className="w-10 h-10 bg-[#002b49] rounded-full flex items-center justify-center text-white">
-                    <Plus className="w-5 h-5 text-[#fdb913]" />
-                  </div>
-                </div>
-                <button 
-                  onClick={() => {
-                    setVista('login');
-                    setSessionUser(null);
-                    triggerToast("Sesión de conductor finalizada");
-                  }} 
-                  className="flex flex-col items-center justify-center text-gray-400 hover:text-red-500 focus:outline-none"
-                >
-                  <X className="w-5 h-5" />
-                  <span className="text-[10px] font-bold mt-0.5">Salir</span>
-                </button>
-              </nav>
-
-            </div>
           </div>
         )}
 
@@ -1948,20 +1435,6 @@ export default function App() {
           >
             1. Login
           </button>
-          
-          <button 
-            type="button"
-            onClick={() => {
-              setVista('conductor');
-              // Automatically sign in mock conductor if not signed in
-              if (!sessionUser) setSessionUser({ email: 'conductor@duocuc.cl', role: 'conductor' });
-            }}
-            className={`px-3 py-1.5 text-xs font-bold rounded transition-all ${
-              vista === 'conductor' ? 'bg-[#fdb913] text-[#002b49]' : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            2. Conductor
-          </button>
 
           <button 
             type="button"
@@ -1974,7 +1447,7 @@ export default function App() {
               vista === 'guardia' ? 'bg-[#fdb913] text-[#002b49]' : 'text-slate-300 hover:text-white'
             }`}
           >
-            3. Guardia
+            2. Guardia
           </button>
 
           <button 
@@ -1988,7 +1461,7 @@ export default function App() {
               vista === 'gestion' ? 'bg-[#fdb913] text-[#002b49]' : 'text-slate-300 hover:text-white'
             }`}
           >
-            4. Gestión
+            3. Gestión
           </button>
         </div>
 
@@ -1998,16 +1471,15 @@ export default function App() {
           <select 
             value={currentRole} 
             onChange={(e) => {
-              const r = e.target.value as any;
+              const r = e.target.value as 'guardia' | 'jefe_seguridad' | 'servicios_generales';
               setCurrentRole(r);
               triggerToast(`Rol simulado cambiado a ${r.toUpperCase()}`, 'info');
             }}
             className="bg-[#001d34] text-xs font-bold text-white border-none py-1 pl-2 pr-8 rounded focus:ring-1 focus:ring-[#fdb913] outline-none"
           >
-            <option value="conductor">Conductor (Sin Admin)</option>
             <option value="guardia">Guardia (Con Admin)</option>
             <option value="jefe_seguridad">Jefe Seguridad (Con Admin)</option>
-            <option value="servicios_generales">Sev. Generales (Con Admin)</option>
+            <option value="servicios_generales">Servicios Generales (Con Admin)</option>
           </select>
         </div>
       </footer>
