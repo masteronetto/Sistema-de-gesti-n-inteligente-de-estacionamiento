@@ -44,8 +44,11 @@ export default function App() {
   const [vista, setVista] = useState<'login' | 'guardia' | 'gestion'>('login');
   const [checkIn, setCheckIn] = useState<CheckIn | null>(null);
   const [modalBloqueo, setModalBloqueo] = useState(false);
-  const [alertas, setAlertas] = useState<Alerta[]>(inicialAlertas);
-  const [espacios, setEspacios] = useState<Espacio[]>(() => generarEspaciosCompletos());
+
+  const dbEnabled = isSupabaseConfigured && supabase !== null;
+
+  const [alertas, setAlertas] = useState<Alerta[]>(dbEnabled ? [] : inicialAlertas);
+  const [espacios, setEspacios] = useState<Espacio[]>(dbEnabled ? [] : () => generarEspaciosCompletos());
 
   // Additional interface & simulation states
   const [sessionUser, setSessionUser] = useState<{ email: string; role: 'guardia' | 'jefe_seguridad' | 'servicios_generales' } | null>(null);
@@ -71,8 +74,6 @@ export default function App() {
   const [showMaintenanceForm, setShowMaintenanceForm] = useState<string | null>(null);
   const [mantenimientoReason, setMantenimientoReason] = useState('');
   const [mantenimientoError, setMantenimientoError] = useState('');
-
-  const dbEnabled = isSupabaseConfigured && supabase !== null;
 
   const simulatedUsers: Record<string, { password: string; role: 'guardia' | 'jefe_seguridad' | 'servicios_generales' }> = {
     'guardia@duocuc.cl': { password: 'duocguard1', role: 'guardia' },
