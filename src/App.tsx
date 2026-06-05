@@ -71,8 +71,89 @@ export default function App() {
   const [showMaintenanceForm, setShowMaintenanceForm] = useState<string | null>(null);
   const [mantenimientoReason, setMantenimientoReason] = useState('');
   const [mantenimientoError, setMantenimientoError] = useState('');
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
+
+  const dbEnabled = isSupabaseConfigured && supabase !== null;
 
   const resolveVistaFromRole = (role: 'guardia' | 'jefe_seguridad' | 'servicios_generales') => (role === 'guardia' ? 'guardia' : 'gestion');
+
+  const mapDbSpace = (space: any): Espacio => ({
+    id: space.id,
+    zona: space.zone,
+    tipo: space.type as TipoEspacio,
+    estado: space.status as EstadoEspacio,
+    parId: space.pair_id ?? null,
+    patente: space.plate ?? undefined,
+    conductor: space.driver_name ?? undefined,
+    telefono: space.phone ?? undefined,
+    horaEntrada: typeof space.entry_time === 'string'
+      ? space.entry_time.slice(0, 5)
+      : space.entry_time ? new Date(space.entry_time).toTimeString().slice(0, 5) : undefined,
+    mantenimientoRazon: space.maintenance_reason ?? undefined,
+  });
+
+  const mapDbAlert = (alert: any): Alerta => ({
+    id: alert.id,
+    patente: alert.plate ?? '',
+    espacioBloqueado: alert.blocked_space_id,
+    espacioBloqueador: alert.blocker_space_id,
+    conductor: alert.driver_name ?? '',
+    telefono: alert.phone ?? '',
+    estado: alert.status as EstadoAlerta,
+    segundosRestantes: alert.seconds_remaining ?? 0,
+  });
+
+  const loadParkingState = async () => {
+    if (!supabase) return;
+
+    const { data: spaces, error: spacesError } = await supabase
+      .from('parking_spaces')
+      .select('id, zone, type, status, pair_id, plate, driver_name, phone, entry_time, maintenance_reason')
+      .order('id', { ascending: true });
+
+    const { data: activeAlerts, error: alertsError } = await supabase
+      .from('parking_alerts')
+      .select('id, plate, blocked_space_id, blocker_space_id, driver_name, phone, status, seconds_remaining')
+      .is('resolved_at', null)
+      .order('created_at', { ascending: false });
+
+    if (spacesError) {
+      console.error('Error cargando espacios desde Supabase:', spacesError.message);
+    } else if (spaces) {
+      setEspacios(spaces.map(mapDbSpace));
+    }
+
+    if (alertsError) {
+      console.error('Error cargando alertas desde Supabase:', alertsError.message);
+    } else if (activeAlerts) {
+      setAlertas(activeAlerts.map(mapDbAlert));
+    }
+  };
+
+  const createProfileIfMissing = async (userId: string, email: string) => {
+    if (!supabase) return;
+
+    const { data: existingProfile, error } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+
+    if (!existingProfile) {
+      const role = 'guardia';
+      const full_name = email.split('@')[0];
+      const { error: insertError } = await supabase.from('profiles').insert([
+        { id: userId, email, full_name, role }
+      ]);
+      if (insertError) throw insertError;
+    }
+  };
 
   const applyAuthenticatedProfile = async (userId: string, fallbackEmail: string) => {
     if (!supabase) {
@@ -85,8 +166,25 @@ export default function App() {
       .eq('id', userId)
       .single();
 
-    if (error || !profile) {
-      throw new Error('No se encontró el perfil del usuario.');
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+
+    if (!profile) {
+      await createProfileIfMissing(userId, fallbackEmail);
+      const { data: fallbackProfile, error: fallbackError } = await supabase
+        .from('profiles')
+        .select('email, role')
+        .eq('id', userId)
+        .single();
+      if (fallbackError || !fallbackProfile) {
+        throw new Error('No se encontró el perfil del usuario.');
+      }
+      const role = fallbackProfile.role as 'guardia' | 'jefe_seguridad' | 'servicios_generales';
+      setSessionUser({ email: fallbackProfile.email || fallbackEmail, role });
+      setCurrentRole(role);
+      setVista(resolveVistaFromRole(role));
+      return;
     }
 
     const role = profile.role as 'guardia' | 'jefe_seguridad' | 'servicios_generales';
@@ -114,12 +212,11 @@ export default function App() {
 
   useEffect(() => {
     const bootstrapAuth = async () => {
-      if (!isSupabaseConfigured) return;
+      if (!dbEnabled) return;
 
-      const { data, error } = await supabase.auth.getSession();
+      const { data, error } = await supabase!.auth.getSession();
       if (error) {
         setLoginError(error.message);
-        return;
       }
 
       const user = data.session?.user;
@@ -130,6 +227,8 @@ export default function App() {
           setLoginError(profileError instanceof Error ? profileError.message : 'No se pudo restaurar la sesión.');
         }
       }
+
+      await loadParkingState();
     };
 
     bootstrapAuth();
@@ -175,14 +274,11 @@ export default function App() {
       interval = setInterval(() => {
         setBlockCountdown(prev => {
           if (prev <= 1) {
-            // Escalate immediately
             setIsBlockTimerRunning(false);
-            // Simulate escalation to guard panel
             const blockerSpaceId = checkIn ? (espacios.find(e => e.id === checkIn.espacioId)?.parId || 'A-01-FRENTE') : 'A-01-FRENTE';
             const blockerObj = espacios.find(e => e.id === blockerSpaceId);
-            const newId = Date.now();
             const newAlert: Alerta = {
-              id: newId,
+              id: Date.now(),
               patente: blockerObj?.patente || 'BKRT-45',
               espacioBloqueado: checkIn?.espacioId || 'A-01-FONDO',
               espacioBloqueador: blockerSpaceId,
@@ -191,8 +287,40 @@ export default function App() {
               estado: 'ESCALADA',
               segundosRestantes: 0
             };
-            setAlertas(prev => [newAlert, ...prev]);
-            triggerToast("Alerta escalada automáticamente al Panel de Guardia", "alert");
+
+            if (dbEnabled && supabase) {
+              (async () => {
+                const { error: alertError } = await supabase.from('parking_alerts').insert([
+                  {
+                    plate: newAlert.patente,
+                    blocked_space_id: newAlert.espacioBloqueado,
+                    blocker_space_id: newAlert.espacioBloqueador,
+                    driver_name: newAlert.conductor,
+                    phone: newAlert.telefono,
+                    status: 'ESCALADA',
+                    seconds_remaining: 0,
+                    resolved_at: null
+                  }
+                ]);
+
+                const { error: spaceError } = await supabase
+                  .from('parking_spaces')
+                  .update({ status: 'alerta' })
+                  .eq('id', blockerSpaceId);
+
+                if (alertError || spaceError) {
+                  console.error(alertError ?? spaceError);
+                  triggerToast('Error sincronizando la alerta en Supabase.', 'alert');
+                } else {
+                  await loadParkingState();
+                  triggerToast('Alerta escalada automáticamente al Panel de Guardia', 'alert');
+                }
+              })();
+            } else {
+              setAlertas(prev => [newAlert, ...prev]);
+              triggerToast('Alerta escalada automáticamente al Panel de Guardia', 'alert');
+            }
+
             return 0;
           }
           return prev - 1;
@@ -200,7 +328,7 @@ export default function App() {
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [modalBloqueo, isBlockTimerRunning, checkIn, espacios]);
+  }, [modalBloqueo, isBlockTimerRunning, checkIn, espacios, dbEnabled]);
 
   // US-04 rule checker helper function
   function puedeSeleccionar(espacio: Espacio, todosLosEspacios: Espacio[]): boolean {
@@ -219,30 +347,53 @@ export default function App() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Login handler
-  const handleLogin = (e: React.FormEvent) => {
+  // Login and register handlers
+  const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
 
     const email = loginEmail.trim().toLowerCase();
-
     if (!email.endsWith('@duocuc.cl')) {
       setLoginError('Solo usuarios institucionales @duocuc.cl');
       return;
     }
 
-    if (!isSupabaseConfigured) {
+    if (!dbEnabled || !supabase) {
       setLoginError('Configura Supabase para usar el login real.');
       return;
     }
 
+    if (authMode === 'signup') {
+      if (!loginPassword || !confirmPassword) {
+        setLoginError('Debes completar la contraseña y la confirmación.');
+        return;
+      }
+      if (loginPassword !== confirmPassword) {
+        setLoginError('Las contraseñas no coinciden.');
+        return;
+      }
+    }
+
     setIsLoggingIn(true);
 
-    supabase.auth.signInWithPassword({
-      email,
-      password: loginPassword,
-    })
-      .then(async ({ data, error }) => {
+    try {
+      if (authMode === 'signup') {
+        const { data, error } = await supabase.auth.signUp({ email, password: loginPassword });
+        if (error) {
+          setLoginError(error.message);
+          return;
+        }
+
+        if (!data.user) {
+          setLoginError('Registro realizado. Verifica tu correo y vuelve a iniciar sesión.');
+          return;
+        }
+
+        await createProfileIfMissing(data.user.id, email);
+        await applyAuthenticatedProfile(data.user.id, email);
+        triggerToast('Cuenta registrada e iniciada con éxito', 'success');
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password: loginPassword });
         if (error) {
           setLoginError(error.message);
           return;
@@ -253,27 +404,36 @@ export default function App() {
           return;
         }
 
-        await applyAuthenticatedProfile(data.user.id, data.user.email || email);
+        await applyAuthenticatedProfile(data.user.id, email);
         triggerToast('Sesión iniciada con éxito', 'success');
-      })
-      .catch((loginAuthError) => {
-        setLoginError(loginAuthError instanceof Error ? loginAuthError.message : 'No se pudo iniciar sesión.');
-      })
-      .finally(() => setIsLoggingIn(false));
+      }
+
+      await loadParkingState();
+    } catch (authError) {
+      setLoginError(authError instanceof Error ? authError.message : 'No se pudo completar la autenticación.');
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
     setSessionUser(null);
     setCurrentRole('guardia');
     setVista('login');
+    setAuthMode('login');
+    setLoginEmail('');
+    setLoginPassword('');
+    setConfirmPassword('');
     triggerToast('Sesión cerrada.', 'info');
   };
 
   // Check-In space logic
-  const handleSpaceCheckIn = (espacioId: string) => {
+  const handleSpaceCheckIn = async (espacioId: string) => {
     if (!isOnline) {
-      triggerToast("Error de conexión. Intente nuevamente.", "alert");
+      triggerToast('Error de conexión. Intente nuevamente.', 'alert');
       return;
     }
 
@@ -284,22 +444,45 @@ export default function App() {
       if (spaceObj.tipo === 'doble_frente') {
         triggerToast(`Ocupa primero el Fondo [${spaceObj.parId}]`, 'alert');
       } else {
-        triggerToast("Este espacio no está disponible", 'alert');
+        triggerToast('Este espacio no está disponible', 'alert');
       }
       return;
     }
 
     setLoadingCheckIn(espacioId);
 
-    // Simulate 1-second cloud function check response delay
+    const horaEntrada = new Date();
+    const horaStr = `${horaEntrada.getHours().toString().padStart(2, '0')}:${horaEntrada.getMinutes().toString().padStart(2, '0')}`;
+
+    if (dbEnabled && supabase) {
+      const { error } = await supabase
+        .from('parking_spaces')
+        .update({
+          status: 'ocupado',
+          plate: sessionUser?.email ? sessionUser.email.toUpperCase().slice(0, 7) : 'GZBY-88',
+          driver_name: sessionUser?.email || 'conductor@duocuc.cl',
+          phone: '+56977884455',
+          entry_time: horaStr
+        })
+        .eq('id', espacioId);
+
+      setLoadingCheckIn(null);
+
+      if (error) {
+        triggerToast('No se pudo registrar el ingreso en Supabase.', 'alert');
+        console.error(error);
+        return;
+      }
+
+      await loadParkingState();
+      setCheckIn({ espacioId, tipo: spaceObj.tipo, zona: spaceObj.zona, horaEntrada: horaStr });
+      triggerToast(`Registro exitoso en espacio ${espacioId}`, 'success');
+      return;
+    }
+
     setTimeout(() => {
       setLoadingCheckIn(null);
-      
-      const now = new Date();
-      const horaStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-      
-      // Update local space status
-      setEspacios(prevEspacios => 
+      setEspacios(prevEspacios =>
         prevEspacios.map(e => {
           if (e.id === espacioId) {
             return {
@@ -315,38 +498,53 @@ export default function App() {
         })
       );
 
-      setCheckIn({
-        espacioId: espacioId,
-        tipo: spaceObj.tipo,
-        zona: spaceObj.zona,
-        horaEntrada: horaStr
-      });
-
+      setCheckIn({ espacioId, tipo: spaceObj.tipo, zona: spaceObj.zona, horaEntrada: horaStr });
       triggerToast(`Registro exitoso en espacio ${espacioId}`, 'success');
     }, 1000);
   };
 
   // Checkout space logic
-  const handleSpaceCheckout = () => {
+  const handleSpaceCheckout = async () => {
     if (!checkIn) return;
-    
+
     const targetId = checkIn.espacioId;
 
-    setEspacios(prevEspacios => 
-      prevEspacios.map(e => {
-        if (e.id === targetId) {
-          return {
-            ...e,
-            estado: 'disponible',
-            conductor: undefined,
-            patente: undefined,
-            telefono: undefined,
-            horaEntrada: undefined
-          };
-        }
-        return e;
-      })
-    );
+    if (dbEnabled && supabase) {
+      const { error } = await supabase
+        .from('parking_spaces')
+        .update({
+          status: 'disponible',
+          plate: null,
+          driver_name: null,
+          phone: null,
+          entry_time: null
+        })
+        .eq('id', targetId);
+
+      if (error) {
+        triggerToast('No se pudo registrar la salida en Supabase.', 'alert');
+        console.error(error);
+        return;
+      }
+
+      await loadParkingState();
+    } else {
+      setEspacios(prevEspacios =>
+        prevEspacios.map(e => {
+          if (e.id === targetId) {
+            return {
+              ...e,
+              estado: 'disponible',
+              conductor: undefined,
+              patente: undefined,
+              telefono: undefined,
+              horaEntrada: undefined
+            };
+          }
+          return e;
+        })
+      );
+    }
 
     triggerToast(`Salida registrada del espacio ${targetId}`, 'success');
     setCheckIn(null);
@@ -355,22 +553,46 @@ export default function App() {
   };
 
   // Checkout any space (Guard panel action)
-  const handleGuardCheckout = (espacioId: string) => {
-    setEspacios(prevEspacios => 
-      prevEspacios.map(e => {
-        if (e.id === espacioId) {
-          return {
-            ...e,
-            estado: 'disponible',
-            conductor: undefined,
-            patente: undefined,
-            telefono: undefined,
-            horaEntrada: undefined
-          };
-        }
-        return e;
-      })
-    );
+  const handleGuardCheckout = async (espacioId: string) => {
+    if (dbEnabled && supabase) {
+      const { error } = await supabase
+        .from('parking_spaces')
+        .update({
+          status: 'disponible',
+          plate: null,
+          driver_name: null,
+          phone: null,
+          entry_time: null,
+          maintenance_reason: null
+        })
+        .eq('id', espacioId);
+
+      if (error) {
+        triggerToast('No se pudo liberar el espacio en Supabase.', 'alert');
+        console.error(error);
+        return;
+      }
+
+      await loadParkingState();
+    } else {
+      setEspacios(prevEspacios =>
+        prevEspacios.map(e => {
+          if (e.id === espacioId) {
+            return {
+              ...e,
+              estado: 'disponible',
+              conductor: undefined,
+              patente: undefined,
+              telefono: undefined,
+              horaEntrada: undefined,
+              mantenimientoRazon: undefined
+            };
+          }
+          return e;
+        })
+      );
+    }
+
     triggerToast(`Espacio ${espacioId} liberado administrativamente`, 'info');
     if (selectedEspacioId === espacioId) {
       setSelectedEspacioId(null);
@@ -384,96 +606,174 @@ export default function App() {
     setIsBlockTimerRunning(true);
   };
 
-  const handleConfirmBlockingNotification = () => {
+  const handleConfirmBlockingNotification = async () => {
     setIsBlockTimerRunning(false);
-    
-    // Add active alert on behalf of the blocked driver (FONDO is blocked by FRENTE)
+
     const blockedId = checkIn?.espacioId || 'A-01-FONDO';
     const spaceFondo = espacios.find(e => e.id === blockedId);
-    if (spaceFondo) {
-      const frenteId = spaceFondo.parId || 'A-01-FRENTE';
-      const spaceFrente = espacios.find(e => e.id === frenteId);
-      
+    if (!spaceFondo || !supabase) {
+      setModalBloqueo(false);
+      triggerToast('No se pudo generar la notificación de bloqueo.', 'alert');
+      return;
+    }
+
+    const frenteId = spaceFondo.parId || 'A-01-FRENTE';
+    const spaceFrente = espacios.find(e => e.id === frenteId);
+    const plate = spaceFrente?.patente || 'BKRT-45';
+    const driverName = spaceFrente?.conductor || 'Carlos Pérez';
+    const phone = spaceFrente?.telefono || '+56912345678';
+
+    if (dbEnabled) {
+      const { error: alertError } = await supabase.from('parking_alerts').insert([
+        {
+          plate,
+          blocked_space_id: blockedId,
+          blocker_space_id: frenteId,
+          driver_name: driverName,
+          phone,
+          status: 'NUEVO',
+          seconds_remaining: 300
+        }
+      ]);
+
+      const { error: spaceError } = await supabase
+        .from('parking_spaces')
+        .update({ status: 'alerta' })
+        .eq('id', frenteId);
+
+      if (alertError || spaceError) {
+        console.error(alertError ?? spaceError);
+        triggerToast('No se pudo enviar la notificación al conductor bloqueador.', 'alert');
+      } else {
+        await loadParkingState();
+        triggerToast('Notificación enviada al conductor bloqueador', 'success');
+      }
+    } else {
       const newAlertId = Date.now();
       const newAlertObj: Alerta = {
         id: newAlertId,
-        patente: spaceFrente?.patente || 'BKRT-45',
+        patente: plate,
         espacioBloqueado: blockedId,
         espacioBloqueador: frenteId,
-        conductor: spaceFrente?.conductor || 'Carlos Pérez',
-        telefono: spaceFrente?.telefono || '+56912345678',
+        conductor: driverName,
+        telefono: phone,
         estado: 'NUEVO',
         segundosRestantes: 300
       };
 
       setAlertas(prev => [newAlertObj, ...prev]);
-
-      // Set FRENTE space status to alert
-      setEspacios(prev => prev.map(e => {
-        if (e.id === frenteId) {
-          return { ...e, estado: 'alerta' };
-        }
-        return e;
-      }));
+      setEspacios(prev => prev.map(e => (e.id === frenteId ? { ...e, estado: 'alerta' } : e)));
+      triggerToast('Notificación enviada al conductor bloqueador', 'success');
     }
 
     setModalBloqueo(false);
-    triggerToast("Notificación enviada al conductor bloqueador", "success");
   };
 
   const handleFastForwardCounter = () => {
-    // Simulated fast forward to escalation status (force 1 second)
     setBlockCountdown(1);
   };
 
-  const handleEscalateDriverImmediately = () => {
+  const handleEscalateDriverImmediately = async () => {
     setIsBlockTimerRunning(false);
-    
+
     const blockedId = checkIn?.espacioId || 'A-01-FONDO';
     const spaceFondo = espacios.find(e => e.id === blockedId);
-    if (spaceFondo) {
-      const frenteId = spaceFondo.parId || 'A-01-FRENTE';
-      const spaceFrente = espacios.find(e => e.id === frenteId);
+    if (!spaceFondo || !supabase) {
+      setModalBloqueo(false);
+      triggerToast('No se pudo escalar la alerta.', 'alert');
+      return;
+    }
+
+    const frenteId = spaceFondo.parId || 'A-01-FRENTE';
+    const spaceFrente = espacios.find(e => e.id === frenteId);
+    const plate = spaceFrente?.patente || 'BKRT-45';
+    const driverName = spaceFrente?.conductor || 'Carlos Pérez';
+    const phone = spaceFrente?.telefono || '+56912345678';
+
+    if (dbEnabled) {
+      const { error: alertError } = await supabase.from('parking_alerts').insert([
+        {
+          plate,
+          blocked_space_id: blockedId,
+          blocker_space_id: frenteId,
+          driver_name: driverName,
+          phone,
+          status: 'ESCALADA',
+          seconds_remaining: 0,
+          resolved_at: null
+        }
+      ]);
+
+      const { error: spaceError } = await supabase
+        .from('parking_spaces')
+        .update({ status: 'alerta' })
+        .eq('id', frenteId);
+
+      if (alertError || spaceError) {
+        console.error(alertError ?? spaceError);
+        triggerToast('No se pudo escalar la alerta.', 'alert');
+      } else {
+        await loadParkingState();
+        triggerToast('Alerta escalada de inmediato al guardia de turno', 'alert');
+      }
+    } else {
       const newAlertId = Date.now();
-      
       const newAlertObj: Alerta = {
         id: newAlertId,
-        patente: spaceFrente?.patente || 'BKRT-45',
+        patente: plate,
         espacioBloqueado: blockedId,
         espacioBloqueador: frenteId,
-        conductor: spaceFrente?.conductor || 'Carlos Pérez',
-        telefono: spaceFrente?.telefono || '+56912345678',
+        conductor: driverName,
+        telefono: phone,
         estado: 'ESCALADA',
         segundosRestantes: 0
       };
 
       setAlertas(prev => [newAlertObj, ...prev]);
+      setEspacios(prev => prev.map(e => (e.id === frenteId ? { ...e, estado: 'alerta' } : e)));
+      triggerToast('Alerta escalada de inmediato al guardia de turno', 'alert');
+    }
 
+    setModalBloqueo(false);
+  };
+
+  // Guard Actions
+  const handleResolveAlert = async (alertId: number, blockFrenteId: string) => {
+    if (dbEnabled && supabase) {
+      const { error } = await supabase
+        .from('parking_alerts')
+        .update({ status: 'ESCALADA', resolved_at: new Date().toISOString() })
+        .eq('id', alertId);
+
+      if (error) {
+        triggerToast('No se pudo actualizar la alerta en Supabase.', 'alert');
+        console.error(error);
+        return;
+      }
+
+      const { error: spaceError } = await supabase
+        .from('parking_spaces')
+        .update({ status: 'ocupado' })
+        .eq('id', blockFrenteId);
+
+      if (spaceError) {
+        triggerToast('No se pudo restaurar el estado del espacio en Supabase.', 'alert');
+        console.error(spaceError);
+        return;
+      }
+
+      await loadParkingState();
+    } else {
+      setAlertas(prev => prev.filter(a => a.id !== alertId));
       setEspacios(prev => prev.map(e => {
-        if (e.id === frenteId) {
-          return { ...e, estado: 'alerta' };
+        if (e.id === blockFrenteId && e.estado === 'alerta') {
+          return { ...e, estado: 'ocupado' };
         }
         return e;
       }));
     }
 
-    setModalBloqueo(false);
-    triggerToast("Alerta escalada de inmediato al guardia de turno", "alert");
-  };
-
-  // Guard Actions
-  const handleResolveAlert = (alertId: number, blockFrenteId: string) => {
-    setAlertas(prev => prev.filter(a => a.id !== alertId));
-    
-    // Switch FRENTE space state back to simple occupied or previous status
-    setEspacios(prev => prev.map(e => {
-      if (e.id === blockFrenteId && e.estado === 'alerta') {
-        return { ...e, estado: 'ocupado' };
-      }
-      return e;
-    }));
-
-    triggerToast("Resolución escalada procesada limpia", "success");
+    triggerToast('Resolución escalada procesada limpia', 'success');
   };
 
   const handleContactDriver = (phone: string, driver: string) => {
@@ -500,18 +800,32 @@ export default function App() {
     });
   };
 
-  const handleAdminReserve = (espacioId: string) => {
-    setEspacios(prev => prev.map(e => {
-      if (e.id === espacioId) {
-        return {
-          ...e,
-          estado: 'reservado',
-          mantenimientoRazon: undefined
-        };
+  const handleAdminReserve = async (espacioId: string) => {
+    if (dbEnabled && supabase) {
+      const { error } = await supabase
+        .from('parking_spaces')
+        .update({ status: 'reservado', maintenance_reason: null })
+        .eq('id', espacioId);
+
+      if (error) {
+        triggerToast('No se pudo reservar el espacio en Supabase.', 'alert');
+        console.error(error);
+        return;
       }
-      return e;
-    }));
-    triggerToast(`Espacio ${espacioId} reservado de forma administrativa`, "success");
+      await loadParkingState();
+    } else {
+      setEspacios(prev => prev.map(e => {
+        if (e.id === espacioId) {
+          return {
+            ...e,
+            estado: 'reservado',
+            mantenimientoRazon: undefined
+          };
+        }
+        return e;
+      }));
+    }
+    triggerToast(`Espacio ${espacioId} reservado de forma administrativa`, 'success');
   };
 
   const handleAdminMaintenanceStart = (espacioId: string) => {
@@ -520,44 +834,80 @@ export default function App() {
     setMantenimientoError('');
   };
 
-  const handleConfirmMaintenance = (e: React.FormEvent, espacioId: string) => {
+  const handleConfirmMaintenance = async (e: React.FormEvent, espacioId: string) => {
     e.preventDefault();
     if (mantenimientoReason.trim().length < 10) {
       setMantenimientoError('Debe ingresar un motivo de al menos 10 caracteres');
       return;
     }
 
-    setEspacios(prev => prev.map(e => {
-      if (e.id === espacioId) {
-        return {
-          ...e,
-          estado: 'mantenimiento',
-          mantenimientoRazon: mantenimientoReason
-        };
-      }
-      return e;
-    }));
+    if (dbEnabled && supabase) {
+      const { error } = await supabase
+        .from('parking_spaces')
+        .update({ status: 'mantenimiento', maintenance_reason: mantenimientoReason })
+        .eq('id', espacioId);
 
-    triggerToast(`Espacio ${espacioId} puesto en mantenimiento`, "info");
+      if (error) {
+        triggerToast('No se pudo actualizar el estado de mantenimiento en Supabase.', 'alert');
+        console.error(error);
+        return;
+      }
+      await loadParkingState();
+    } else {
+      setEspacios(prev => prev.map(e => {
+        if (e.id === espacioId) {
+          return {
+            ...e,
+            estado: 'mantenimiento',
+            mantenimientoRazon: mantenimientoReason
+          };
+        }
+        return e;
+      }));
+    }
+
+    triggerToast(`Espacio ${espacioId} puesto en mantenimiento`, 'info');
     setShowMaintenanceForm(null);
   };
 
-  const handleAdminClearToAvailable = (espacioId: string) => {
-    setEspacios(prev => prev.map(e => {
-      if (e.id === espacioId) {
-        return {
-          ...e,
-          estado: 'disponible',
-          conductor: undefined,
-          patente: undefined,
-          telefono: undefined,
-          horaEntrada: undefined,
-          mantenimientoRazon: undefined
-        };
+  const handleAdminClearToAvailable = async (espacioId: string) => {
+    if (dbEnabled && supabase) {
+      const { error } = await supabase
+        .from('parking_spaces')
+        .update({
+          status: 'disponible',
+          plate: null,
+          driver_name: null,
+          phone: null,
+          entry_time: null,
+          maintenance_reason: null
+        })
+        .eq('id', espacioId);
+
+      if (error) {
+        triggerToast('No se pudo limpiar el espacio en Supabase.', 'alert');
+        console.error(error);
+        return;
       }
-      return e;
-    }));
-    triggerToast(`Espacio ${espacioId} ahora disponible`, "success");
+      await loadParkingState();
+    } else {
+      setEspacios(prev => prev.map(e => {
+        if (e.id === espacioId) {
+          return {
+            ...e,
+            estado: 'disponible',
+            conductor: undefined,
+            patente: undefined,
+            telefono: undefined,
+            horaEntrada: undefined,
+            mantenimientoRazon: undefined
+          };
+        }
+        return e;
+      }));
+    }
+
+    triggerToast(`Espacio ${espacioId} ahora disponible`, 'success');
   };
 
   // Derived state calculations
@@ -632,7 +982,7 @@ export default function App() {
                 <p className="text-xs text-gray-500 mt-2">Sistema de Gestión Inteligente de Estacionamientos</p>
               </div>
 
-              <form onSubmit={handleLogin} className="space-y-5">
+              <form onSubmit={handleAuthSubmit} className="space-y-5">
                 <div>
                   <label className="block text-xs font-semibold uppercase text-gray-600 tracking-wider mb-2">Correo institucional</label>
                   <div className="relative">
@@ -663,7 +1013,7 @@ export default function App() {
                   <label className="block text-xs font-semibold uppercase text-gray-600 tracking-wider mb-2">Contraseña</label>
                   <div className="relative flex items-center">
                     <input 
-                      type={showPassword ? "text" : "password"}
+                      type={showPassword ? 'text' : 'password'}
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
                       placeholder="••••••••"
@@ -674,12 +1024,28 @@ export default function App() {
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-1 w-[44px] h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600"
-                      title={showPassword ? "Ocultar Contraseña" : "Mostrar Contraseña"}
+                      title={showPassword ? 'Ocultar Contraseña' : 'Mostrar Contraseña'}
                     >
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
                 </div>
+
+                {authMode === 'signup' && (
+                  <div>
+                    <label className="block text-xs font-semibold uppercase text-gray-600 tracking-wider mb-2">Confirmar contraseña</label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full min-h-[44px] pl-4 rounded-xl border border-gray-200 bg-gray-50 text-base outline-none focus:border-[#0076b6] transition-colors duration-200"
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <button 
                   type="submit"
@@ -695,10 +1061,25 @@ export default function App() {
                       <span>Validando credenciales...</span>
                     </>
                   ) : (
-                    <span>INGRESAR</span>
+                    <span>{authMode === 'signup' ? 'REGISTRAR' : 'INGRESAR'}</span>
                   )}
                 </button>
               </form>
+
+              <div className="mt-4 flex items-center justify-between text-xs text-gray-500">
+                <span>{authMode === 'signup' ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?'}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode(authMode === 'signup' ? 'login' : 'signup');
+                    setLoginError('');
+                    setConfirmPassword('');
+                  }}
+                  className="font-semibold text-[#002b49] hover:text-[#0076b6]"
+                >
+                  {authMode === 'signup' ? 'Iniciar sesión' : 'Regístrate'}
+                </button>
+              </div>
 
               <div className="mt-6 pt-5 border-t border-gray-100 text-center text-xs text-gray-500">
                 <p>Uso institucional exclusivo para guardias y administración de Duoc UC Sede Maipú.</p>
