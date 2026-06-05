@@ -114,36 +114,7 @@ export default function App() {
 
   useEffect(() => {
     const bootstrapAuth = async () => {
-      if (!isSupabaseConfigured) {
-        setLoginError('Configura VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY para habilitar el login real.');
-        return;
-      }
-
-      const { data, error } = await supabase.auth.getSession();
-      if (error) {
-        setLoginError(error.message);
-        return;
-      }
-
-      const user = data.session?.user;
-      if (user) {
-        try {
-          await applyAuthenticatedProfile(user.id, user.email || '');
-        } catch (profileError) {
-          setLoginError(profileError instanceof Error ? profileError.message : 'No se pudo restaurar la sesión.');
-        }
-      }
-    };
-
-    bootstrapAuth();
-  }, []);
-
-  useEffect(() => {
-    const bootstrapAuth = async () => {
-      if (!supabase || !isSupabaseConfigured) {
-        setLoginError('Configura VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY para habilitar el login real.');
-        return;
-      }
+      if (!isSupabaseConfigured) return;
 
       const { data, error } = await supabase.auth.getSession();
       if (error) {

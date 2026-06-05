@@ -57,6 +57,22 @@ Para que el login funcione de forma real en Vercel o local, define estas variabl
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 
+Puedes copiar el archivo [`.env.example`](.env.example) y usarlo como base para tu archivo `.env` local o para cargar las variables en Vercel.
+
+## Flujo de prueba del login real
+
+1. Crea o confirma los usuarios en Supabase Auth con estos correos:
+	- `guardia@duocuc.cl`
+	- `jefe_seguridad@duocuc.cl`
+	- `servicios_generales@duocuc.cl`
+2. Verifica que esos usuarios tengan un registro asociado en `public.profiles`.
+3. Configura `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en local o en Vercel.
+4. Inicia la app y prueba el acceso con:
+	- `guardia@duocuc.cl` / `duocguard1`
+	- `jefe_seguridad@duocuc.cl` / `duocadmin1`
+	- `servicios_generales@duocuc.cl` / `duocadmin1`
+5. Si el login falla, revisa que el perfil exista y que el correo de Auth coincida con el de `profiles`.
+
 ## Usuarios de prueba
 
 - `guardia@duocuc.cl` / `duocguard1`
