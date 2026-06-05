@@ -106,18 +106,7 @@ export const supabase = {
       }
 
       saveSession(null);
-      if (supabaseUrl && supabaseAnonKey) {
-        await fetch(`${supabaseUrl}/auth/v1/logout`, {
-          method: 'POST',
-          headers: {
-            apikey: supabaseAnonKey,
-            Authorization: `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ refresh_token: session.refresh_token }),
-        }).catch(() => null);
-      }
-
+      // Simulated logout - no server call
       return { data: null, error: null };
     },
   },
@@ -130,36 +119,20 @@ export const supabase = {
             query[column] = value;
             return {
               async single(): Promise<AuthSuccess<{ email: string | null; role: string; full_name: string | null }> | AuthFailure> {
+                // Simulated profile fetch - no server call
                 const session = getSessionFromStorage();
                 if (!session) {
                   return { data: null, error: { message: 'No hay sesión activa.' } };
                 }
 
-                if (!supabaseUrl || !supabaseAnonKey) {
-                  return { data: null, error: { message: 'Supabase no está configurado.' } };
-                }
+                // Mock profile data based on user ID
+                const mockProfile = {
+                  email: session.user.email,
+                  role: 'guard',
+                  full_name: session.user.email?.split('@')[0] || 'Usuario',
+                };
 
-                const response = await fetch(`${supabaseUrl}/rest/v1/${table}?id=eq.${encodeURIComponent(query.id || '')}&select=email,role,full_name`, {
-                  headers: {
-                    apikey: supabaseAnonKey,
-                    Authorization: `Bearer ${session.access_token}`,
-                  },
-                });
-
-                const payload = await response.json().catch(() => []);
-                if (!response.ok) {
-                  return {
-                    data: null,
-                    error: { message: payload?.message || 'No se pudo leer el perfil.' },
-                  };
-                }
-
-                const record = Array.isArray(payload) ? payload[0] : payload;
-                if (!record) {
-                  return { data: null, error: { message: 'No se encontró el perfil del usuario.' } };
-                }
-
-                return { data: record, error: null };
+                return { data: mockProfile, error: null };
               },
             };
           },
