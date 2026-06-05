@@ -74,6 +74,12 @@ export default function App() {
 
   const dbEnabled = isSupabaseConfigured && supabase !== null;
 
+  const simulatedUsers: Record<string, { password: string; role: 'guardia' | 'jefe_seguridad' | 'servicios_generales' }> = {
+    'guardia@duocuc.cl': { password: 'duocguard1', role: 'guardia' },
+    'jefe_seguridad@duocuc.cl': { password: 'duocadmin1', role: 'jefe_seguridad' },
+    'servicios_generales@duocuc.cl': { password: 'duocadmin1', role: 'servicios_generales' },
+  };
+
   const resolveVistaFromRole = (role: 'guardia' | 'jefe_seguridad' | 'servicios_generales') => (role === 'guardia' ? 'guardia' : 'gestion');
 
   const mapDbSpace = (space: any): Espacio => ({
@@ -129,67 +135,6 @@ export default function App() {
     }
   };
 
-  const createProfileIfMissing = async (userId: string, email: string) => {
-    if (!supabase) return;
-
-    const { data: existingProfile, error } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('id', userId)
-      .single();
-
-    if (error && error.code !== 'PGRST116') {
-      throw error;
-    }
-
-    if (!existingProfile) {
-      const role = 'guardia';
-      const full_name = email.split('@')[0];
-      const { error: insertError } = await supabase.from('profiles').insert([
-        { id: userId, email, full_name, role }
-      ]);
-      if (insertError) throw insertError;
-    }
-  };
-
-  const applyAuthenticatedProfile = async (userId: string, fallbackEmail: string) => {
-    if (!supabase) {
-      throw new Error('Supabase no está configurado.');
-    }
-
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('email, role')
-      .eq('id', userId)
-      .single();
-
-    if (error && error.code !== 'PGRST116') {
-      throw error;
-    }
-
-    if (!profile) {
-      await createProfileIfMissing(userId, fallbackEmail);
-      const { data: fallbackProfile, error: fallbackError } = await supabase
-        .from('profiles')
-        .select('email, role')
-        .eq('id', userId)
-        .single();
-      if (fallbackError || !fallbackProfile) {
-        throw new Error('No se encontró el perfil del usuario.');
-      }
-      const role = fallbackProfile.role as 'guardia' | 'jefe_seguridad' | 'servicios_generales';
-      setSessionUser({ email: fallbackProfile.email || fallbackEmail, role });
-      setCurrentRole(role);
-      setVista(resolveVistaFromRole(role));
-      return;
-    }
-
-    const role = profile.role as 'guardia' | 'jefe_seguridad' | 'servicios_generales';
-    setSessionUser({ email: profile.email || fallbackEmail, role });
-    setCurrentRole(role);
-    setVista(resolveVistaFromRole(role));
-  };
-
   // Active check-in time duration calculator
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
@@ -208,28 +153,10 @@ export default function App() {
   }, [toastMessage]);
 
   useEffect(() => {
-    const bootstrapAuth = async () => {
-      if (!dbEnabled) return;
-
-      const { data, error } = await supabase!.auth.getSession();
-      if (error) {
-        setLoginError(error.message);
-      }
-
-      const user = data.session?.user;
-      if (user) {
-        try {
-          await applyAuthenticatedProfile(user.id, user.email || '');
-        } catch (profileError) {
-          setLoginError(profileError instanceof Error ? profileError.message : 'No se pudo restaurar la sesión.');
-        }
-      }
-
-      await loadParkingState();
-    };
-
-    bootstrapAuth();
-  }, []);
+    if (dbEnabled) {
+      loadParkingState();
+    }
+  }, [dbEnabled]);
 
   // Duration counter for check-in
   useEffect(() => {
@@ -355,31 +282,21 @@ export default function App() {
       return;
     }
 
-    if (!dbEnabled || !supabase) {
-      setLoginError('Configura Supabase para usar el login real.');
+    const account = simulatedUsers[email];
+    if (!account || account.password !== loginPassword) {
+      setLoginError('Credenciales incorrectas. Usa el usuario y contraseña de prueba.');
       return;
     }
 
     setIsLoggingIn(true);
-
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password: loginPassword });
-      if (error) {
-        setLoginError(error.message);
-        return;
-      }
-
-      if (!data.user) {
-        setLoginError('No se pudo iniciar sesión.');
-        return;
-      }
-
-      await createProfileIfMissing(data.user.id, email);
-      await applyAuthenticatedProfile(data.user.id, email);
-      triggerToast('Sesión iniciada con éxito', 'success');
+      setSessionUser({ email, role: account.role });
+      setCurrentRole(account.role);
+      setVista(resolveVistaFromRole(account.role));
+      triggerToast('Sesión iniciada en modo simulado', 'success');
       await loadParkingState();
-    } catch (authError) {
-      setLoginError(authError instanceof Error ? authError.message : 'No se pudo completar la autenticación.');
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : 'No se pudo iniciar sesión.');
     } finally {
       setIsLoggingIn(false);
     }
@@ -1018,12 +935,12 @@ export default function App() {
               </form>
 
               <div className="mt-4 text-xs text-gray-500">
-                <p>Para crear nuevos guardias, usa la consola de Supabase o un proceso de registro seguro fuera de esta interfaz.</p>
+                <p>Este login es simulado para pruebas de la interfaz. Los datos de estacionamiento se sincronizan con Supabase cuando está configurado.</p>
               </div>
 
               <div className="mt-6 pt-5 border-t border-gray-100 text-center text-xs text-gray-500">
                 <p>Uso institucional exclusivo para guardias y administración de Duoc UC Sede Maipú.</p>
-                <p className="mt-3 text-[10px] text-gray-400">Acceso real vía Supabase Auth.</p>
+                <p className="mt-3 text-[10px] text-gray-400">Acceso simulado en el cliente.</p>
               </div>
             </motion.div>
           </div>
