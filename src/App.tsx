@@ -708,12 +708,12 @@ export default function App() {
           </div>
         )}
 
-        {/* VIEW 3 — PANEL GUARDIA (Tablet View, landscape 1024px compliant) */}
+        {/* VIEW 3 — PANEL GUARDIA (Responsive design - mobile to desktop) */}
         {vista === 'guardia' && (
-          <div className="flex-1 flex bg-gray-50" id="guard-tablet-view">
+          <div className="flex-1 flex flex-col lg:flex-row bg-gray-50 min-h-0" id="guard-tablet-view">
             
-            {/* Sidebar navigation (CA-05.1) */}
-            <aside className="w-64 bg-[#002b49] text-white flex flex-col p-6 shrink-0 shadow-lg relative">
+            {/* Sidebar navigation - responsive (hidden on mobile, visible on lg) */}
+            <aside className="hidden lg:flex w-full lg:w-64 bg-[#002b49] text-white flex-col p-6 shrink-0 shadow-lg relative">
               <div className="flex items-center gap-2 mb-10">
                 <div className="w-10 h-10 bg-[#fdb913] text-[#002b49] rounded-xl flex items-center justify-center shadow-md">
                   <Shield className="w-5 h-5 shrink-0" />
@@ -765,18 +765,18 @@ export default function App() {
               </div>
             </aside>
 
-            {/* Main Area: 70% width */}
-            <main className="flex-1 flex flex-col min-w-0" style={{ width: '70%' }}>
+            {/* Main Area: Responsive width */}
+            <main className="flex-1 flex flex-col min-w-0 w-full lg:w-auto" style={{ minHeight: '0' }}>
               
-              {/* Header inside Panel */}
-              <header className="bg-white border-b h-16 shrink-0 px-8 flex justify-between items-center shadow-sm">
+              {/* Header inside Panel - responsive */}
+              <header className="bg-white border-b h-auto lg:h-16 shrink-0 px-4 lg:px-8 py-4 lg:py-0 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 lg:gap-0 shadow-sm">
                 <div className="flex items-center gap-3">
-                  <span className="font-extrabold text-[#002b49] text-base">Sede Maipú</span>
-                  <span className="text-gray-300">|</span>
+                  <span className="font-extrabold text-[#002b49] text-sm lg:text-base">Sede Maipú</span>
+                  <span className="text-gray-300 hidden lg:inline">|</span>
                   <div className="flex items-center gap-1.5">
                     {/* Active Connection state indicator (CA-05.5) */}
                     <span className="w-2.5 h-2.5 rounded-full bg-green-500 ring-2 ring-green-100 animate-pulse"></span>
-                    <span className="text-xs font-bold text-[#002b49]">Realtime activo</span>
+                    <span className="text-xs lg:text-sm font-bold text-[#002b49]">Realtime activo</span>
                   </div>
                 </div>
 
@@ -787,62 +787,62 @@ export default function App() {
                 </div>
               </header>
 
-              {/* KPI metrics bar (CA-05.2) */}
-              <div className="bg-[#002b49] text-white p-4 px-8 flex flex-wrap gap-4 items-center justify-between shadow-inner shrink-0">
-                <div className="flex items-center gap-2 min-w-[130px]">
-                  <div className="p-1.5 bg-[#001d34] rounded-lg border border-white/15">
-                    <Car className="w-5 h-5 text-gray-300" />
+              {/* KPI metrics bar - responsive grid */}
+              <div className="bg-[#002b49] text-white p-3 lg:p-4 px-4 lg:px-8 grid grid-cols-2 lg:flex lg:flex-wrap gap-3 lg:gap-4 items-center justify-between shadow-inner shrink-0">
+                <div className="flex items-center gap-2 min-w-[100px] lg:min-w-[130px]">
+                  <div className="p-1.5 bg-[#001d34] rounded-lg border border-white/15 shrink-0">
+                    <Car className="w-4 lg:w-5 h-4 lg:h-5 text-gray-300" />
                   </div>
                   <div>
-                    <span className="text-[10px] text-gray-400 leading-none">Total Espacios</span>
-                    <p className="font-black text-sm">{totalEspacios}</p>
+                    <span className="text-[9px] lg:text-[10px] text-gray-400 leading-none block">Total Espacios</span>
+                    <p className="font-black text-xs lg:text-sm">{totalEspacios}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 min-w-[130px]">
-                  <div className="p-1.5 bg-[#001d34] rounded-lg border border-white/15">
-                    <CheckCircle className="w-5 h-5 text-green-400" />
+                <div className="flex items-center gap-2 min-w-[100px] lg:min-w-[130px]">
+                  <div className="p-1.5 bg-[#001d34] rounded-lg border border-white/15 shrink-0">
+                    <CheckCircle className="w-4 lg:w-5 h-4 lg:h-5 text-green-400" />
                   </div>
                   <div>
-                    <span className="text-[10px] text-gray-400 leading-none">Ocupados</span>
-                    <p className="font-black text-sm text-red-400">{totalEspacios - espaciosDisponibles}</p>
+                    <span className="text-[9px] lg:text-[10px] text-gray-400 leading-none block">Ocupados</span>
+                    <p className="font-black text-xs lg:text-sm text-red-400">{totalEspacios - espaciosDisponibles}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 min-w-[130px]">
-                  <div className="p-1.5 bg-[#001d34] rounded-lg border border-white/15">
-                    <Wrench className="w-5 h-5 text-gray-400" />
+                <div className="flex items-center gap-2 min-w-[100px] lg:min-w-[130px]">
+                  <div className="p-1.5 bg-[#001d34] rounded-lg border border-white/15 shrink-0">
+                    <Wrench className="w-4 lg:w-5 h-4 lg:h-5 text-gray-400" />
                   </div>
                   <div>
-                    <span className="text-[10px] text-gray-400 leading-none">Disponibles</span>
-                    <p className="font-black text-sm text-green-400">{espaciosDisponibles}</p>
+                    <span className="text-[9px] lg:text-[10px] text-gray-400 leading-none block">Disponibles</span>
+                    <p className="font-black text-xs lg:text-sm text-green-400">{espaciosDisponibles}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 min-w-[130px]">
-                  <div className="p-1.5 bg-[#001d34] rounded-lg border border-white/15">
-                    <AlertTriangle className="w-5 h-5 text-[#fdb913]" />
+                <div className="flex items-center gap-2 min-w-[100px] lg:min-w-[130px]">
+                  <div className="p-1.5 bg-[#001d34] rounded-lg border border-white/15 shrink-0">
+                    <AlertTriangle className="w-4 lg:w-5 h-4 lg:h-5 text-[#fdb913]" />
                   </div>
                   <div className="bg-[#fdb913] text-[#002b49] px-2.5 py-1 rounded-lg">
-                    <span className="text-[9px] font-extrabold leading-none uppercase block">Alertas activas</span>
-                    <p className="font-black text-base text-center leading-none mt-0.5">{alertas.length}</p>
+                    <span className="text-[8px] lg:text-[9px] font-extrabold leading-none uppercase block">Alertas</span>
+                    <p className="font-black text-sm lg:text-base text-center leading-none mt-0.5">{alertas.length}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Interactive Map Layout area (70%) */}
-              <div className="flex-1 p-8 overflow-y-auto min-h-0 space-y-6">
+              {/* Interactive Map Layout area - responsive */}
+              <div className="flex-1 p-4 lg:p-8 overflow-y-auto min-h-0 space-y-4 lg:space-y-6">
 
-                {/* Sub-system warning info tool details */}
-                <div className="bg-white rounded-2xl p-4 border shadow-sm flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
-                    <Info className="w-5 h-5 shrink-0" />
+                {/* Sub-system warning info tool details - responsive */}
+                <div className="bg-white rounded-xl lg:rounded-2xl p-3 lg:p-4 border shadow-sm flex flex-col sm:flex-row items-start gap-3">
+                  <div className="w-9 lg:w-10 h-9 lg:h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
+                    <Info className="w-4 lg:w-5 h-4 lg:h-5 shrink-0" />
                   </div>
                   <div>
-                    <h4 className="font-extrabold text-[#002b49] text-xs">Instrucciones de Administración de Casillas</h4>
-                    <p className="text-[10px] text-gray-500 leading-normal mt-1">
-                      Haga clic en cualquier casilla ocupada para inspeccionar al conductor titular y su patente. 
-                      <b className="text-[#0076b6] ml-1">Para tareas de reservas o mantenciones directas:</b> Haga clic derecho (o mantenga presionado) sobre la casilla para abrir el menú contextual administrativo.
+                    <h4 className="font-extrabold text-[#002b49] text-xs lg:text-sm">Instrucciones Rápidas</h4>
+                    <p className="text-[9px] lg:text-[10px] text-gray-500 leading-relaxed mt-1">
+                      <b className="text-[#002b49]">Clic izq:</b> Ver detalles. 
+                      <b className="text-[#0076b6] ml-1">Clic derecho:</b> Reserva/Mantención.
                     </p>
                   </div>
                 </div>
@@ -900,22 +900,22 @@ export default function App() {
                   </motion.div>
                 )}
 
-                {/* CSS Grid Map organizes Zones A, B, C, D (CA-05.3) */}
-                <div className="space-y-6">
+                {/* CSS Grid Map organizes Zones A, B, C, D - responsive */}
+                <div className="space-y-4 lg:space-y-6">
                   {['A', 'B', 'C', 'D'].map(zonaName => (
-                    <div key={zonaName} className="bg-white rounded-2xl p-6 border shadow-sm space-y-4">
-                      <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-                        <h3 className="font-black text-base text-[#002b49] tracking-tight flex items-center gap-2">
-                          <span className="w-2 h-5 bg-[#0076b6] rounded-sm"></span>
+                    <div key={zonaName} className="bg-white rounded-2xl p-4 lg:p-6 border shadow-sm space-y-3 lg:space-y-4">
+                      <div className="flex items-center justify-between pb-2 lg:pb-3 border-b border-gray-100">
+                        <h3 className="font-black text-sm lg:text-base text-[#002b49] tracking-tight flex items-center gap-2">
+                          <span className="w-2 h-4 lg:h-5 bg-[#0076b6] rounded-sm"></span>
                           Zona Estacionamiento {zonaName}
                         </h3>
-                        <span className="text-xs text-gray-400 font-bold bg-gray-50 border px-3 py-1 rounded-full uppercase">
-                          SECTOR COMPLETO
+                        <span className="text-[8px] lg:text-xs text-gray-400 font-bold bg-gray-50 border px-2.5 lg:px-3 py-1 rounded-full uppercase">
+                          SECTOR
                         </span>
                       </div>
 
-                      {/* Map Grid Container layout (CA-05.3) */}
-                      <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3" id={`map-grid-${zonaName}`}>
+                      {/* Map Grid Container - more responsive breakpoints */}
+                      <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-8 gap-1.5 lg:gap-3" id={`map-grid-${zonaName}`}>
                         {filterByZone(zonaName).map(esp => {
                           const isSelected = selectedEspacioId === esp.id;
                           const hasAlert = esp.estado === 'alerta';
@@ -929,7 +929,7 @@ export default function App() {
                               key={esp.id}
                               onClick={() => setSelectedEspacioId(esp.id)}
                               onContextMenu={(e) => handleGridRightClick(e, esp.id)}
-                              className={`aspect-square rounded-xl p-2.5 border-2 flex flex-col justify-between cursor-pointer relative transition-all duration-200 select-none ${
+                              className={`aspect-square rounded-lg lg:rounded-xl p-1.5 lg:p-2.5 border-2 flex flex-col justify-between cursor-pointer relative transition-all duration-200 select-none text-[9px] lg:text-xs ${
                                 isSelected ? 'ring-4 ring-[#00a4e4] ring-offset-2' : ''
                               } ${
                                 hasAlert 
@@ -942,32 +942,32 @@ export default function App() {
                                   ? 'border-[#002b49] bg-red-50 text-red-950'
                                   : 'border-green-400 bg-green-50 text-green-950 hover:bg-green-100'
                               }`}
-                              style={{ minHeight: '64px' }}
+                              style={{ minHeight: '44px' }}
                               title={`${esp.id} - Haga clic derecho para Menu Administrativo`}
                             >
-                              <div className="flex items-center justify-between">
-                                <span className="font-extrabold text-xs">{esp.id}</span>
-                                {esp.tipo === 'doble_fondo' && <span className="text-[7px] bg-slate-200 text-slate-700 px-1 py-0.2 rounded font-black uppercase">FONDO</span>}
-                                {esp.tipo === 'doble_frente' && <span className="text-[7px] bg-amber-200 text-amber-700 px-1 py-0.2 rounded font-black uppercase">FRENTE</span>}
+                              <div className="flex items-center justify-between gap-0.5">
+                                <span className="font-extrabold text-[8px] lg:text-xs">{esp.id}</span>
+                                {esp.tipo === 'doble_fondo' && <span className="text-[6px] lg:text-[7px] bg-slate-200 text-slate-700 px-0.5 py-0.2 rounded font-black uppercase">DF</span>}
+                                {esp.tipo === 'doble_frente' && <span className="text-[6px] lg:text-[7px] bg-amber-200 text-amber-700 px-0.5 py-0.2 rounded font-black uppercase">F</span>}
                               </div>
 
-                              {/* Central visual indicator icon based on status */}
-                              <div className="flex justify-center my-1">
+                              {/* Central visual indicator icon based on status - responsive */}
+                              <div className="flex justify-center my-0.5 lg:my-1">
                                 {hasAlert ? (
-                                  <AlertTriangle className="w-5 h-5 text-amber-600 animate-bounce" />
+                                  <AlertTriangle className="w-3 lg:w-5 h-3 lg:h-5 text-amber-600 animate-bounce" />
                                 ) : isMaint ? (
-                                  <Wrench className="w-5 h-5 text-gray-400" />
+                                  <Wrench className="w-3 lg:w-5 h-3 lg:h-5 text-gray-400" />
                                 ) : isRes ? (
-                                  <Lock className="w-5 h-5 text-blue-500" />
+                                  <Lock className="w-3 lg:w-5 h-3 lg:h-5 text-blue-500" />
                                 ) : isOcup ? (
-                                  <Car className="w-5 h-5 text-[#002b49] shrink-0" />
+                                  <Car className="w-3 lg:w-5 h-3 lg:h-5 text-[#002b49] shrink-0" />
                                 ) : (
-                                  <CheckCircle className="w-5 h-5 text-green-600" />
+                                  <CheckCircle className="w-3 lg:w-5 h-3 lg:h-5 text-green-600" />
                                 )}
                               </div>
 
-                              <span className="text-[8px] font-black uppercase text-center tracking-wider block mt-auto leading-none">
-                                {hasAlert ? 'ALERTA' : isMaint ? 'MANUTENCION' : isRes ? 'RESERVADO' : isOcup ? 'OCUPADO' : 'LIBRE'}
+                              <span className="text-[6px] lg:text-[8px] font-black uppercase text-center tracking-wider block mt-auto leading-none">
+                                {hasAlert ? 'ALERTA' : isMaint ? 'MANT' : isRes ? 'RES' : isOcup ? 'OCP' : 'LIBRE'}
                               </span>
                             </div>
                           );
@@ -1019,7 +1019,7 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Inline Drawer/Panel details for single click selected space (CA-05.4) */}
+                {/* Inline Drawer/Panel details for single click selected space - responsive */}
                 {selectedEspacioId && (() => {
                   const s = espacios.find(e => e.id === selectedEspacioId);
                   if (!s) return null;
@@ -1028,24 +1028,24 @@ export default function App() {
                     <motion.div 
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="bg-[#002b49] text-white rounded-2xl p-6 shadow-xl border-l-8 border-[#fdb913] relative overflow-hidden"
+                      className="bg-[#002b49] text-white rounded-xl lg:rounded-2xl p-4 lg:p-6 shadow-xl border-l-8 border-[#fdb913] relative overflow-hidden"
                     >
                       <button 
                         onClick={() => setSelectedEspacioId(null)}
-                        className="absolute top-4 right-4 text-white/60 hover:text-white"
+                        className="absolute top-3 lg:top-4 right-3 lg:right-4 text-white/60 hover:text-white"
                       >
-                        <X className="w-5 h-5" />
+                        <X className="w-4 lg:w-5 h-4 lg:h-5" />
                       </button>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 items-center">
                         <div>
-                          <span className="text-[10px] text-gray-300 uppercase font-bold tracking-widest">Información Casilla</span>
-                          <h4 className="text-3xl font-black text-[#fdb913] mt-1">{s.id}</h4>
-                          <p className="text-xs text-slate-300 font-semibold mt-1">
-                            Tipo de espacio: <b className="text-[#00a4e4] uppercase">{s.tipo.replace('_', ' ')}</b>
+                          <span className="text-[8px] lg:text-[10px] text-gray-300 uppercase font-bold tracking-widest">Info Casilla</span>
+                          <h4 className="text-2xl lg:text-3xl font-black text-[#fdb913] mt-1">{s.id}</h4>
+                          <p className="text-[9px] lg:text-xs text-slate-300 font-semibold mt-1">
+                            Tipo: <b className="text-[#00a4e4] uppercase">{s.tipo.replace('_', ' ')}</b>
                           </p>
                           {s.mantenimientoRazon && (
-                            <p className="mt-2 text-xs bg-black/20 p-2.5 rounded-lg border border-white/5 text-slate-200">
+                            <p className="mt-2 text-[8px] lg:text-xs bg-black/20 p-2 lg:p-2.5 rounded-lg border border-white/5 text-slate-200">
                               <b>Motivo:</b> {s.mantenimientoRazon}
                             </p>
                           )}
@@ -1053,40 +1053,42 @@ export default function App() {
 
                         {s.estado === 'ocupado' || s.estado === 'alerta' ? (
                           <>
-                            <div className="space-y-1 text-sm bg-black/20 p-4 rounded-xl border border-white/5">
-                              <span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest block mb-2">Conductor Titular</span>
-                              <p className="font-extrabold text-white text-base flex items-center gap-1.5">
-                                <User className="w-4 h-4 text-[#fdb913]" />
-                                {s.conductor || 'Rodrigo Silva'}
+                            <div className="space-y-1.5 lg:space-y-1 text-sm bg-black/20 p-3 lg:p-4 rounded-lg lg:rounded-xl border border-white/5">
+                              <span className="text-[7px] lg:text-[9px] text-gray-400 font-bold uppercase tracking-widest block mb-2">Conductor Titular</span>
+                              <p className="font-extrabold text-white text-sm lg:text-base flex items-center gap-1.5">
+                                <User className="w-3 lg:w-4 h-3 lg:h-4 text-[#fdb913] shrink-0" />
+                                <span className="truncate">{s.conductor || 'Rodrigo Silva'}</span>
                               </p>
-                              <p className="font-mono text-xs text-red-400 font-bold">Patente: {s.patente || 'HZLW-89'}</p>
-                              <p className="text-xs text-slate-200">Hora Ingreso: {s.horaEntrada || '14:50'} Hrs</p>
+                              <p className="font-mono text-[7px] lg:text-xs text-red-400 font-bold">Patente: {s.patente || 'HZLW-89'}</p>
+                              <p className="text-[8px] lg:text-xs text-slate-200">Ingreso: {s.horaEntrada || '14:50'} Hrs</p>
                             </div>
 
-                            <div className="space-y-3.5">
+                            <div className="space-y-2 lg:space-y-3.5">
                               {s.telefono && (
                                 <a 
                                   href={`tel:${s.telefono}`}
-                                  className="w-full min-h-[44px] bg-[#0076b6] hover:bg-[#005c8f] text-white font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-2"
+                                  className="w-full min-h-[40px] lg:min-h-[44px] bg-[#0076b6] hover:bg-[#005c8f] text-white font-bold rounded-lg lg:rounded-xl text-[8px] lg:text-xs transition-colors flex items-center justify-center gap-2"
                                 >
-                                  <Phone className="w-4 h-4" />
-                                  <span>Llamar al Conductor ({s.telefono})</span>
+                                  <Phone className="w-3 lg:w-4 h-3 lg:h-4" />
+                                  <span className="hidden sm:inline">Llamar ({s.telefono})</span>
+                                  <span className="sm:hidden">Llamar</span>
                                 </a>
                               )}
                               <button 
                                 onClick={() => handleGuardCheckout(s.id)}
-                                className="w-full min-h-[44px] bg-[#fdb913] hover:bg-[#e2a40a] text-[#002b49] font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2"
+                                className="w-full min-h-[40px] lg:min-h-[44px] bg-[#fdb913] hover:bg-[#e2a40a] text-[#002b49] font-bold rounded-lg lg:rounded-xl text-[8px] lg:text-xs transition-all flex items-center justify-center gap-2"
                               >
-                                <CheckCircle className="w-4 h-4" />
-                                <span>Registrar Salida (Forzar Salida)</span>
+                                <CheckCircle className="w-3 lg:w-4 h-3 lg:h-4" />
+                                <span className="hidden sm:inline">Registrar Salida</span>
+                                <span className="sm:hidden">Salida</span>
                               </button>
                             </div>
                           </>
                         ) : (
-                          <div className="col-span-2 text-center py-6 border border-dashed border-white/10 rounded-xl">
-                            <CheckCircle className="w-8 h-8 text-green-400 mx-auto mb-2" />
-                            <p className="font-bold text-sm text-[#fdb913]">El casillero está disponible</p>
-                            <p className="text-xs text-slate-300 mt-1">No hay conductores registrados ocupando el estacionamiento en este momento.</p>
+                          <div className="col-span-1 lg:col-span-2 text-center py-4 lg:py-6 border border-dashed border-white/10 rounded-lg lg:rounded-xl">
+                            <CheckCircle className="w-6 lg:w-8 h-6 lg:h-8 text-green-400 mx-auto mb-2" />
+                            <p className="font-bold text-xs lg:text-sm text-[#fdb913]">Disponible</p>
+                            <p className="text-[8px] lg:text-xs text-slate-300 mt-1">Sin conductores registrados en este momento.</p>
                           </div>
                         )}
                       </div>
@@ -1097,10 +1099,10 @@ export default function App() {
               </div>
             </main>
 
-            {/* Right sidebar: Alerts 30% width (CA-05.1, CA-07.1) */}
-            <aside className="w-80 bg-white border-l shrink-0 p-6 flex flex-col gap-5 overflow-y-auto" style={{ width: '30%' }}>
-              <div className="flex justify-between items-center pb-3 border-b border-gray-100">
-                <span className="font-extrabold text-[#002b49] text-sm tracking-wide">ALERTAS OPERATIVAS</span>
+            {/* Right sidebar: Alerts - responsive (hidden on mobile) */}
+            <aside className="hidden lg:flex w-80 bg-white border-l shrink-0 p-4 lg:p-6 flex-col gap-4 lg:gap-5 overflow-y-auto">
+              <div className="flex justify-between items-center pb-2 lg:pb-3 border-b border-gray-100">
+                <span className="font-extrabold text-[#002b49] text-xs lg:text-sm tracking-wide">ALERTAS OPERATIVAS</span>
                 <span className="text-xs bg-red-50 text-red-600 font-bold px-2 py-0.5 rounded-full border border-red-200">
                   {alertas.length} Activas
                 </span>
