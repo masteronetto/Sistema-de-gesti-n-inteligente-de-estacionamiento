@@ -77,24 +77,39 @@ export const supabase = {
       return { data: { session: getSessionFromStorage() }, error: null };
     },
     async signInWithPassword(params: { email: string; password: string }): Promise<AuthSuccess<{ user: AuthSession['user']; session: AuthSession }> | AuthFailure> {
-      const result = await requestAuth<{
-        access_token: string;
-        refresh_token: string;
-        user: AuthSession['user'];
-      }>(`/auth/v1/token?grant_type=password`, {
-        method: 'POST',
-        body: JSON.stringify({ email: params.email, password: params.password }),
-      });
+      if (!supabaseUrl || !supabaseAnonKey) {
+        return { data: null, error: { message: 'Supabase no está configurado.' } };
+      }
 
-      if (result.error) {
-        return result;
+      // The auth token endpoint expects application/x-www-form-urlencoded body
+      const body = new URLSearchParams();
+      body.append('email', params.email);
+      body.append('password', params.password);
+
+      const response = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: {
+          apikey: supabaseAnonKey,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: body.toString(),
+      }).catch(() => null as unknown as Response);
+
+      if (!response) {
+        return { data: null, error: { message: 'No response from auth server.' } };
+      }
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return { data: null, error: { message: payload?.error_description || payload?.message || 'Error de autenticación.' } };
       }
 
       const session: AuthSession = {
-        access_token: result.data.access_token,
-        refresh_token: result.data.refresh_token,
-        user: result.data.user,
+        access_token: payload.access_token,
+        refresh_token: payload.refresh_token,
+        user: payload.user,
       };
+
       saveSession(session);
 
       return { data: { user: session.user, session }, error: null };
