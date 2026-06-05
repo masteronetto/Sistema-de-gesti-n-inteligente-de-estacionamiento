@@ -1,0 +1,6 @@
+{
+  "name": "SGE-Duoc",
+  "description": "Sistema de Gestión Inteligente de Estacionamientos de Duoc UC Sede Maipú",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
