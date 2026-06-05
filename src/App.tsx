@@ -71,9 +71,6 @@ export default function App() {
   const [showMaintenanceForm, setShowMaintenanceForm] = useState<string | null>(null);
   const [mantenimientoReason, setMantenimientoReason] = useState('');
   const [mantenimientoError, setMantenimientoError] = useState('');
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [isRegistering, setIsRegistering] = useState(false);
 
   const dbEnabled = isSupabaseConfigured && supabase !== null;
 
@@ -347,8 +344,8 @@ export default function App() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Login and register handlers
-  const handleAuthSubmit = async (e: React.FormEvent) => {
+  // Login handler
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
 
@@ -363,51 +360,23 @@ export default function App() {
       return;
     }
 
-    if (authMode === 'signup') {
-      if (!loginPassword || !confirmPassword) {
-        setLoginError('Debes completar la contraseña y la confirmación.');
-        return;
-      }
-      if (loginPassword !== confirmPassword) {
-        setLoginError('Las contraseñas no coinciden.');
-        return;
-      }
-    }
-
     setIsLoggingIn(true);
 
     try {
-      if (authMode === 'signup') {
-        const { data, error } = await supabase.auth.signUp({ email, password: loginPassword });
-        if (error) {
-          setLoginError(error.message);
-          return;
-        }
-
-        if (!data.user) {
-          setLoginError('Registro realizado. Verifica tu correo y vuelve a iniciar sesión.');
-          return;
-        }
-
-        await createProfileIfMissing(data.user.id, email);
-        await applyAuthenticatedProfile(data.user.id, email);
-        triggerToast('Cuenta registrada e iniciada con éxito', 'success');
-      } else {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password: loginPassword });
-        if (error) {
-          setLoginError(error.message);
-          return;
-        }
-
-        if (!data.user) {
-          setLoginError('No se pudo iniciar sesión.');
-          return;
-        }
-
-        await applyAuthenticatedProfile(data.user.id, email);
-        triggerToast('Sesión iniciada con éxito', 'success');
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password: loginPassword });
+      if (error) {
+        setLoginError(error.message);
+        return;
       }
 
+      if (!data.user) {
+        setLoginError('No se pudo iniciar sesión.');
+        return;
+      }
+
+      await createProfileIfMissing(data.user.id, email);
+      await applyAuthenticatedProfile(data.user.id, email);
+      triggerToast('Sesión iniciada con éxito', 'success');
       await loadParkingState();
     } catch (authError) {
       setLoginError(authError instanceof Error ? authError.message : 'No se pudo completar la autenticación.');
@@ -423,10 +392,8 @@ export default function App() {
     setSessionUser(null);
     setCurrentRole('guardia');
     setVista('login');
-    setAuthMode('login');
     setLoginEmail('');
     setLoginPassword('');
-    setConfirmPassword('');
     triggerToast('Sesión cerrada.', 'info');
   };
 
@@ -982,7 +949,7 @@ export default function App() {
                 <p className="text-xs text-gray-500 mt-2">Sistema de Gestión Inteligente de Estacionamientos</p>
               </div>
 
-              <form onSubmit={handleAuthSubmit} className="space-y-5">
+              <form onSubmit={handleLogin} className="space-y-5">
                 <div>
                   <label className="block text-xs font-semibold uppercase text-gray-600 tracking-wider mb-2">Correo institucional</label>
                   <div className="relative">
@@ -1031,22 +998,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {authMode === 'signup' && (
-                  <div>
-                    <label className="block text-xs font-semibold uppercase text-gray-600 tracking-wider mb-2">Confirmar contraseña</label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full min-h-[44px] pl-4 rounded-xl border border-gray-200 bg-gray-50 text-base outline-none focus:border-[#0076b6] transition-colors duration-200"
-                        required
-                      />
-                    </div>
-                  </div>
-                )}
-
                 <button 
                   type="submit"
                   disabled={isLoggingIn}
@@ -1061,24 +1012,13 @@ export default function App() {
                       <span>Validando credenciales...</span>
                     </>
                   ) : (
-                    <span>{authMode === 'signup' ? 'REGISTRAR' : 'INGRESAR'}</span>
+                    <span>INGRESAR</span>
                   )}
                 </button>
               </form>
 
-              <div className="mt-4 flex items-center justify-between text-xs text-gray-500">
-                <span>{authMode === 'signup' ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?'}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode(authMode === 'signup' ? 'login' : 'signup');
-                    setLoginError('');
-                    setConfirmPassword('');
-                  }}
-                  className="font-semibold text-[#002b49] hover:text-[#0076b6]"
-                >
-                  {authMode === 'signup' ? 'Iniciar sesión' : 'Regístrate'}
-                </button>
+              <div className="mt-4 text-xs text-gray-500">
+                <p>Para crear nuevos guardias, usa la consola de Supabase o un proceso de registro seguro fuera de esta interfaz.</p>
               </div>
 
               <div className="mt-6 pt-5 border-t border-gray-100 text-center text-xs text-gray-500">
